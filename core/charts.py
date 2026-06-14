@@ -8,7 +8,7 @@ import pandas as pd
 import plotly.graph_objects as go
 
 from core import data as d
-from core.theme import C, AXIS, fade, plot_base
+from core.theme import C, AXIS, plot_base
 
 
 # Local timezone the UTC sleep timestamps are displayed in.
@@ -101,7 +101,7 @@ def sleep_score(asof=None) -> int | None:
     return round(score)
 
 
-# Colour per sleep stage, shared by the breakdown bars and the composition donut.
+# Colour per sleep stage, used by the breakdown bars.
 STAGE_COLORS = {
     "Deep":  C["purple"],   # purple
     "REM":   C["cyan"],     # cyan
@@ -143,178 +143,53 @@ def sleep_breakdown(month: str | None = None) -> go.Figure:
     if not bed.empty:
         lo, hi = float(bed.min()), float(wake.max())
         ticks = list(range(int(lo // 2 * 2), int(hi // 2 * 2) + 3, 2))
-        fig.update_yaxes(tickvals=ticks, ticktext=[_clock_label(t) for t in ticks])
+        fig.update_yaxes(tickvals=ticks, ticktext=[f"{int(round(t)) % 24:02d}:00" for t in ticks])
+
+    # X ticks: always mark the month's first and last day, plus weekly interior
+    # ticks (dropping any that crowd the last-day tick).
+    xaxis = {**AXIS, "showgrid": False, "automargin": True, "tickangle": 0}
+    if month:
+        period = pd.Period(month, freq="M")
+        m_start, m_end = period.start_time, period.end_time.normalize()
+        interior = [t for t in pd.date_range(m_start, m_end, freq="7D")
+                    if t != m_start and (m_end - t).days >= 7]
+        xticks = [m_start, *interior, m_end]
+        xaxis.update(
+            tickvals=xticks,
+            ticktext=[f"{t.strftime('%b')} {t.day}" for t in xticks],
+            range=[m_start - pd.Timedelta(hours=12), m_end + pd.Timedelta(hours=12)],
+        )
 
     fig.update_layout(
         **plot_base(
-            title=dict(text="Sleep stages by night (local time)", font=dict(size=12, color=C["sub"])),
             barmode="overlay",
+            margin=dict(l=36, r=30, t=28, b=28),  # left: clock labels · right: month-end x-label
         ),
         bargap=0.72,
-        xaxis={**AXIS, "showgrid": False},
-        yaxis={**AXIS, "side": "right"},
-    )
-    return fig
-
-
-def sleep_donut() -> go.Figure:
-    """Donut showing average nightly sleep stage composition."""
-    avg_deep  = d.sleep["deepSleepTime"].mean()
-    avg_rem   = d.sleep["REMTime"].mean()
-    avg_light = d.sleep["shallowSleepTime"].mean()
-    avg_wake  = d.sleep["wakeTime"].mean()
-    total_h   = round((avg_deep + avg_rem + avg_light) / 60, 1)
-
-    fig = go.Figure(go.Pie(
-        labels=["Deep", "REM", "Light", "Awake"],
-        values=[avg_deep, avg_rem, avg_light, avg_wake],
-        hole=0.68,
-        marker=dict(colors=[STAGE_COLORS["Deep"], STAGE_COLORS["REM"], STAGE_COLORS["Light"], STAGE_COLORS["Awake"]], line=dict(color=C["bg"], width=3)),
-        textfont=dict(color=C["bg"], size=11),
-        hovertemplate="%{label}: %{value:.0f} min (%{percent})<extra></extra>",
-    ))
-    fig.update_layout(
-        **plot_base(
-            title=dict(text="Avg Sleep Composition", font=dict(size=12, color=C["sub"])),
-            showlegend=True,
-            legend=dict(bgcolor="rgba(0,0,0,0)", font=dict(color=C["sub"], size=10),
-                        orientation="v", yanchor="middle", y=0.5, xanchor="left", x=1.02),
-            margin=dict(l=10, r=90, t=36, b=10),
-            annotations=[dict(
-                text=f"<b>{total_h}h</b><br><span style='font-size:10px'>avg</span>",
-                x=0.5, y=0.5,
-                font=dict(size=22, color=C["text"], family="Inter"),
-                showarrow=False, align="center",
-            )],
-        )
-    )
-    return fig
-
-
-def sleep_stage_hr() -> go.Figure:
-    """Average heart rate recorded during each sleep stage."""
-    df = d.sleep_min[d.sleep_min["hr"].notna() & (d.sleep_min["hr"] > 0)]
-    stage_hr = df.groupby("stage")["hr"].mean().reset_index().round(1)
-    color_map = {"LIGHT": C["surface2"], "DEEP": C["violet"], "REM": C["lime"], "WAKE": C["orange"]}
-    colors = [color_map.get(s, C["sub"]) for s in stage_hr["stage"]]
-    fig = go.Figure(go.Bar(
-        x=stage_hr["stage"], y=stage_hr["hr"],
-        marker_color=colors,
-        text=stage_hr["hr"].apply(lambda v: f"{v:.0f} bpm"),
-        textposition="outside",
-        textfont=dict(color=C["text"], size=12),
-        hovertemplate="%{x}: %{y:.0f} bpm<extra></extra>",
-    ))
-    fig.update_layout(
-        **plot_base(title=dict(text="Avg HR per Sleep Stage", font=dict(size=12, color=C["sub"])), showlegend=False),
-        bargap=0.45,
-        xaxis=dict(tickfont=dict(color=C["sub"], size=12), linecolor="rgba(0,0,0,0)", zeroline=False, showgrid=False),
+        xaxis=xaxis,
         yaxis=AXIS,
     )
     return fig
 
 
-def steps() -> go.Figure:
-    """Daily step count bars with 7-day rolling average and 10K goal line."""
-    df = d.activity.sort_values("date").copy()
-    df["roll7"] = df["steps"].rolling(7, min_periods=1).mean().round(0)
-    fig = go.Figure()
-    fig.add_trace(go.Bar(
-        x=df["date"], y=df["steps"], name="Steps",
-        marker_color=C["lime"], marker_opacity=0.85,
-        hovertemplate="%{x|%b %d}: %{y:,}<extra>Steps</extra>",
-    ))
-    fig.add_trace(go.Scatter(
-        x=df["date"], y=df["roll7"], name="7-day avg",
-        line=dict(color=C["amber"], width=2.5, shape="spline"),
-        hovertemplate="%{y:,.0f}<extra>7d avg</extra>",
-    ))
-    fig.add_hline(y=10000, line_dash="dot", line_color=C["muted"],
-                  annotation_text="10K goal", annotation_font_color=C["sub"],
-                  annotation_position="top right")
-    fig.update_layout(
-        **plot_base(title=dict(text="Daily Steps", font=dict(size=12, color=C["sub"]))),
-        xaxis=AXIS, yaxis=AXIS,
-    )
-    return fig
-
-
-def distance() -> go.Figure:
-    """Daily distance (km) with 7-day rolling average."""
-    df = d.activity.sort_values("date").copy()
-    df["roll7"] = df["distanceKm"].rolling(7, min_periods=1).mean().round(2)
-    fig = go.Figure()
-    fig.add_trace(go.Scatter(
-        x=df["date"], y=df["distanceKm"], name="Distance",
-        fill="tozeroy", fillgradient=fade(C["lime"]),
-        line=dict(color=C["lime"], width=2, shape="spline"),
-        hovertemplate="%{x|%b %d}: %{y:.2f} km<extra></extra>",
-    ))
-    fig.add_trace(go.Scatter(
-        x=df["date"], y=df["roll7"], name="7-day avg",
-        line=dict(color=C["violet"], width=2, dash="dash"),
-        hovertemplate="%{y:.2f} km<extra>7d avg</extra>",
-    ))
-    fig.update_layout(
-        **plot_base(title=dict(text="Daily Distance (km)", font=dict(size=12, color=C["sub"]))),
-        xaxis=AXIS, yaxis=AXIS,
-    )
-    return fig
-
-
-def hr_trend() -> go.Figure:
-    """Daily average and resting heart rate over time."""
-    df = d.daily_hr.sort_values("date")
-    fig = go.Figure()
-    fig.add_trace(go.Scatter(
-        x=df["date"], y=df["avg"].round(0), name="Avg HR",
-        fill="tozeroy", fillgradient=fade(C["cyan"], top=0.30),
-        line=dict(color=C["cyan"], width=2, shape="spline"),
-        hovertemplate="%{x|%b %d}: %{y:.0f} bpm<extra>Avg HR</extra>",
-    ))
-    fig.add_trace(go.Scatter(
-        x=df["date"], y=df["resting"].round(0), name="Resting HR",
-        line=dict(color=C["pink"], width=2, dash="dash"),
-        hovertemplate="%{x|%b %d}: %{y:.0f} bpm<extra>Resting HR</extra>",
-    ))
-    fig.update_layout(
-        **plot_base(title=dict(text="Heart Rate Trend", font=dict(size=12, color=C["sub"]))),
-        xaxis=AXIS, yaxis=AXIS,
-    )
-    return fig
-
-
-def hr_24h() -> go.Figure:
-    """Average heart rate by hour of day across all recorded days."""
-    df = d.hourly_hr
-    fig = go.Figure(go.Scatter(
-        x=df["hour"], y=df["heartRate"], mode="lines",
-        fill="tozeroy", fillgradient=fade(C["violet"]),
-        line=dict(color=C["violet"], width=2.5, shape="spline"),
-        hovertemplate="%{x}:00 — %{y:.0f} bpm<extra></extra>",
-    ))
-    fig.update_layout(
-        **plot_base(title=dict(text="Avg HR by Hour of Day", font=dict(size=12, color=C["sub"])), showlegend=False),
-        xaxis=dict(
-            gridcolor=C["grid"], showgrid=True, zeroline=False,
-            tickvals=list(range(0, 24, 3)),
-            ticktext=["12am", "3am", "6am", "9am", "12pm", "3pm", "6pm", "9pm"],
-            tickfont=dict(color=C["sub"], size=10), linecolor="rgba(0,0,0,0)",
-        ),
-        yaxis=AXIS,
-    )
-    return fig
-
-
-def workouts() -> go.Figure:
-    """Grouped weekly session counts for the last 8 weeks: two-tone Strength + solid Running."""
+def workouts(month: str | None = None) -> go.Figure:
+    """Grouped weekly session counts — the last 8 weeks ending at the selected
+    month, framed over a two-month axis (prior month start → this month end).
+    Two-tone Strength + solid Running."""
     sp = d.sport.copy()
     sp["week"] = sp["date"].dt.to_period("W")
+    if month is None and sp["date"].notna().any():
+        month = str(sp["date"].max().to_period("M"))
+
+    # Last 8 weeks whose start falls on or before the selected month's end.
     weeks = []
-    if sp["week"].notna().any():
-        last = sp["week"].max()
-        weeks = [last - i for i in range(7, -1, -1)]          # last 8 weeks, oldest → current
-    labels = [w.start_time.strftime("%b %d") for w in weeks]
+    if month:
+        period = pd.Period(month, freq="M")
+        m_end = period.end_time.normalize()
+        axis_start = (period - 1).start_time          # first day of the prior month
+        weeks = [w for w in sorted(sp["week"].dropna().unique())
+                 if w.start_time <= m_end][-8:]
+    xs = [w.start_time for w in weeks]
 
     def counts_for(name):
         return [int(((sp["week"] == w) & (sp["sportName"] == name)).sum()) for w in weeks]
@@ -325,18 +200,34 @@ def workouts() -> go.Figure:
     for name, color in series:
         counts = counts_for(name)
         fig.add_trace(go.Bar(
-            x=labels,
+            x=xs,
             base=[LIFT if c else 0 for c in counts],
             y=[c - LIFT if c else 0 for c in counts],
             name=name, customdata=counts,
             marker=dict(color=color, cornerradius="40%"),
-            hovertemplate="Wk of %{x} · " + name + ": %{customdata}<extra></extra>",
+            hovertemplate="Wk of %{x|%b %d} · " + name + ": %{customdata}<extra></extra>",
         ))
 
+    # X ticks: span the prior-month start through this month's end, marking the
+    # first and last day plus weekly interior ticks (dropping any that crowd the
+    # last-day tick).
+    xaxis = {**AXIS, "showgrid": False, "automargin": True, "tickangle": 0}
+    if month:
+        # fortnightly interior ticks (~6 total over the two-month span) so the
+        # horizontal labels don't crowd.
+        interior = [t for t in pd.date_range(axis_start, m_end, freq="14D")
+                    if t != axis_start and (m_end - t).days >= 7]
+        xticks = [axis_start, *interior, m_end]
+        xaxis.update(
+            tickvals=xticks,
+            ticktext=[f"{t.strftime('%b')} {t.day}" for t in xticks],
+            range=[axis_start - pd.Timedelta(hours=12), m_end + pd.Timedelta(hours=12)],
+        )
+
     fig.update_layout(
-        **plot_base(title=dict(text="Sessions per week — last 8 weeks", font=dict(size=12, color=C["sub"])), barmode="group"),
+        **plot_base(barmode="group"),
         bargap=0.45, bargroupgap=0.18,
-        xaxis=dict(tickfont=dict(color=C["sub"], size=11), linecolor="rgba(0,0,0,0)", zeroline=False, showgrid=False),
+        xaxis=xaxis,
         yaxis={**AXIS, "dtick": 1},
     )
     return fig
@@ -360,26 +251,42 @@ def calories(month: str | None = None) -> go.Figure:
     fig = go.Figure()
     fig.add_trace(go.Scatter(
         x=df["date"], y=df["calories"], name="Calories",
-        line=dict(color=C["green"], width=1), opacity=0.3,
+        line=dict(color=C["purple"], width=1), opacity=0.3,
         hovertemplate="%{x|%b %d}: %{y} kcal<extra></extra>",
     ))
     fig.add_trace(go.Scatter(
         x=df["date"], y=df["roll7"], name="7-day avg",
-        line=dict(color=C["green"], width=3, shape="linear"),
+        line=dict(color=C["purple"], width=3, shape="linear"),
         hovertemplate="%{y:.0f} kcal<extra>7d avg</extra>",
     ))
     # Soft halo behind each marker, then the marker itself.
     fig.add_trace(go.Scatter(
         x=pts["date"], y=pts["roll7"], mode="markers", showlegend=False, hoverinfo="skip",
-        marker=dict(size=22, color=C["green"], opacity=0.16),
+        marker=dict(size=22, color=C["purple"], opacity=0.16),
     ))
     fig.add_trace(go.Scatter(
         x=pts["date"], y=pts["roll7"], mode="markers", showlegend=False, hoverinfo="skip",
-        marker=dict(size=8, color=C["green"], line=dict(color=C["bg"], width=1.5)),
+        marker=dict(size=8, color=C["purple"], line=dict(color=C["bg"], width=1.5)),
     ))
+
+    # X ticks: always mark the month's first and last day, plus weekly interior
+    # ticks (dropping any that crowd the last-day tick).
+    xaxis = {**AXIS, "showgrid": False, "automargin": True, "tickangle": 0}
+    if month:
+        period = pd.Period(month, freq="M")
+        m_start, m_end = period.start_time, period.end_time.normalize()
+        interior = [t for t in pd.date_range(m_start, m_end, freq="7D")
+                    if t != m_start and (m_end - t).days >= 7]
+        xticks = [m_start, *interior, m_end]
+        xaxis.update(
+            tickvals=xticks,
+            ticktext=[f"{t.strftime('%b')} {t.day}" for t in xticks],
+            range=[m_start - pd.Timedelta(hours=12), m_end + pd.Timedelta(hours=12)],
+        )
+
     fig.update_layout(
-        **plot_base(title=dict(text="Daily Calories Burned", font=dict(size=12, color=C["sub"]))),
-        xaxis=AXIS, yaxis=AXIS,
+        **plot_base(),
+        xaxis=xaxis, yaxis=AXIS,
     )
     return fig
 
@@ -402,20 +309,36 @@ def weight(month: str | None = None) -> go.Figure:
     fig = go.Figure()
     fig.add_trace(go.Scatter(
         x=df["date"], y=df["lbs"], name="Weight",
-        line=dict(color=C["amber"], width=3, shape="linear"),
+        line=dict(color=C["purple"], width=3, shape="linear"),
         hovertemplate="%{x|%b %d}: %{y} lbs<extra>Weight</extra>",
     ))
     # Soft halo behind each marker, then the marker itself.
     fig.add_trace(go.Scatter(
         x=pts["date"], y=pts["lbs"], mode="markers", showlegend=False, hoverinfo="skip",
-        marker=dict(size=22, color=C["amber"], opacity=0.16),
+        marker=dict(size=22, color=C["purple"], opacity=0.16),
     ))
     fig.add_trace(go.Scatter(
         x=pts["date"], y=pts["lbs"], mode="markers", showlegend=False, hoverinfo="skip",
-        marker=dict(size=8, color=C["amber"], line=dict(color=C["bg"], width=1.5)),
+        marker=dict(size=8, color=C["purple"], line=dict(color=C["bg"], width=1.5)),
     ))
+
+    # X ticks: always mark the month's first and last day, plus weekly interior
+    # ticks (dropping any that crowd the last-day tick).
+    xaxis = {**AXIS, "showgrid": False, "automargin": True, "tickangle": 0}
+    if month:
+        period = pd.Period(month, freq="M")
+        m_start, m_end = period.start_time, period.end_time.normalize()
+        interior = [t for t in pd.date_range(m_start, m_end, freq="7D")
+                    if t != m_start and (m_end - t).days >= 7]
+        xticks = [m_start, *interior, m_end]
+        xaxis.update(
+            tickvals=xticks,
+            ticktext=[f"{t.strftime('%b')} {t.day}" for t in xticks],
+            range=[m_start - pd.Timedelta(hours=12), m_end + pd.Timedelta(hours=12)],
+        )
+
     fig.update_layout(
-        **plot_base(title=dict(text="Weight (lbs)", font=dict(size=12, color=C["sub"])), showlegend=False),
-        xaxis=AXIS, yaxis=AXIS,
+        **plot_base(showlegend=False),
+        xaxis=xaxis, yaxis=AXIS,
     )
     return fig

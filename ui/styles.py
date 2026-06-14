@@ -23,7 +23,7 @@ def inject() -> None:
             color: {C['text']};
         }}
         .block-container {{
-            max-width: 1400px;
+            max-width: 1800px;
             padding-top: 1.5rem;
             padding-bottom: 1.5rem;
         }}
@@ -58,29 +58,33 @@ def inject() -> None:
         ::-webkit-scrollbar-thumb:hover {{ background: {C['muted']}; }}
 
         /* ── Banner ─────────────────────────────────────────────── */
-        .aayu-banner {{
-            display: flex; justify-content: space-between; align-items: center;
-            gap: 32px; flex-wrap: wrap;
-            margin-bottom: 24px; padding: 26px 36px;
+        div[class*="st-key-aayubanner"] {{
             background: {C['surface']}; border: 1px solid {C['border']};
-            border-radius: 18px;
+            border-radius: 18px; padding: 26px 36px; margin-bottom: 24px;
         }}
         .aayu-title {{
-            font-size: 40px; font-weight: 800; color: {C['text']};
+            font-size: 80px; font-weight: 800; color: {C['text']};
             letter-spacing: -0.02em; line-height: 1;
         }}
-        .aayu-stats {{ display: flex; gap: 44px; align-items: flex-start; flex-wrap: wrap; }}
+        /* inline month filter — strip the selectbox chrome to a bare 'May | 2026' */
+        div[class*="st-key-aayubanner"] div[data-baseweb="select"] > div {{
+            background-color: transparent; border: none; box-shadow: none;
+        }}
+        div[class*="st-key-aayubanner"] div[data-baseweb="select"] * {{
+            font-size: 22px; color: {C['sub']}; font-weight: 500;
+        }}
+        .aayu-stats {{ display: flex; gap: 24px; align-items: flex-start; justify-content: flex-end; flex-wrap: wrap; }}
         .aayu-stat-row {{ display: flex; align-items: baseline; }}
         .aayu-stat-label {{
-            font-size: 14px; color: {C['sub']}; font-weight: 500; margin-bottom: 8px;
+            font-size: 18px; color: {C['sub']}; font-weight: 500; margin-bottom: -10px;
         }}
         .aayu-stat-value {{
-            font-size: 32px; font-weight: 600; color: {C['text']}; letter-spacing: -0.02em;
+            font-size: 36px; font-weight: 600; color: {C['text']}; letter-spacing: -0.02em;
         }}
-        .aayu-stat-unit {{ font-size: 15px; color: {C['sub']}; margin-left: 2px; }}
+        .aayu-stat-unit {{ font-size: 15px; color: {C['sub']}; margin-left: 5px; }}
 
         .aayu-section-title {{
-            font-size: 14px; font-weight: 600; color: {C['text']};
+            font-size: 24px; font-weight: 600; color: {C['text']};
             margin: 4px 0 4px 4px; letter-spacing: -0.01em;
         }}
         .aayu-footer {{

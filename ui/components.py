@@ -11,8 +11,13 @@ joined without leading whitespace.
 import streamlit as st
 
 
-def banner(title: str, stats: list[tuple]) -> None:
-    """Top banner: big title + a row of label/value/unit KPI stats.
+def banner_title(title: str) -> None:
+    """The big banner title (e.g. 'Aayu')."""
+    st.markdown(f'<div class="aayu-title">{title}</div>', unsafe_allow_html=True)
+
+
+def banner_stats(stats: list[tuple]) -> None:
+    """A right-aligned row of label/value/unit KPI stats.
 
     stats: list of (label, value, unit) tuples.
     """
@@ -27,13 +32,7 @@ def banner(title: str, stats: list[tuple]) -> None:
         )
 
     cells = "".join(_cell(label, value, unit) for label, value, unit in stats)
-    html = (
-        '<div class="aayu-banner">'
-        f'<div class="aayu-title">{title}</div>'
-        f'<div class="aayu-stats">{cells}</div>'
-        '</div>'
-    )
-    st.markdown(html, unsafe_allow_html=True)
+    st.markdown(f'<div class="aayu-stats">{cells}</div>', unsafe_allow_html=True)
 
 
 def chart_card(title: str, fig, height: int = 280) -> None:

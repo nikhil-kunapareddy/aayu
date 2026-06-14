@@ -16,7 +16,7 @@ from core import data as d
 from ui import components as ui
 from ui import styles
 
-st.set_page_config(page_title="Aayu · Health Dashboard", layout="wide")
+st.set_page_config(page_title="Aayu · Health Dashboard", layout="wide", initial_sidebar_state="collapsed")
 styles.inject()
 
 
@@ -25,44 +25,45 @@ def _months() -> list:
     return charts.all_months()
 
 
-# ── Sidebar: global month filter (replaces the Dash callback) ──────────────────
+# ── Banner: title + inline month filter, KPI stats on the right ────────────────
 months = _months()
-with st.sidebar:
-    st.markdown("### Filter")
-    month = st.selectbox(
-        "Month",
-        options=months,
-        index=len(months) - 1 if months else 0,
-        format_func=lambda m: pd.Period(m, freq="M").strftime("%b %Y"),
-    ) if months else None
-
-
-# ── Banner ─────────────────────────────────────────────────────────────────────
 score = charts.sleep_score()
 weight_lbs = round(d.latest_weight * 2.20462, 1) if d.latest_weight else None
-ui.banner(
-    "Aayu",
-    [
-        ("Sleep Score", score if score is not None else "—", "/100"),
-        ("Avg Daily Steps", f"{d.avg_steps:,}", ""),
-        ("Avg Sleep", d.avg_sleep_h, "hrs"),
-        ("Resting HR", d.avg_resting_hr, "bpm"),
-        ("Weight", weight_lbs if weight_lbs is not None else "—", "lbs"),
-    ],
-)
+stats = [
+    ("Sleep Score", score if score is not None else "—", "/100"),
+    ("Daily Average Steps", f"{d.avg_steps:,}", ""),
+    ("Average Sleep", d.avg_sleep_h, "hrs"),
+    ("Resting HR", d.avg_resting_hr, "bpm"),
+    ("Weight", weight_lbs if weight_lbs is not None else "—", "lbs"),
+]
+
+with st.container(key="aayubanner"):
+    c_title, c_filter, c_stats = st.columns([1.4, 1.6, 5], vertical_alignment="center")
+    with c_title:
+        ui.banner_title("Aayu")
+    with c_filter:
+        month = st.selectbox(
+            "Month",
+            options=months,
+            index=len(months) - 1 if months else 0,
+            format_func=lambda m: pd.Period(m, freq="M").strftime("%b   |   %Y"),
+            label_visibility="collapsed",
+        ) if months else None
+    with c_stats:
+        ui.banner_stats(stats)
 
 
 # ── Sleep section ────────────────────────────────────────────────────────────
-c1, c2 = st.columns(2)
+c1, c2 = st.columns(2, gap="small")
 with c1:
     ui.chart_card("Sleep Breakdown", charts.sleep_breakdown(month))
 with c2:
-    ui.chart_card("Workout Sessions", charts.workouts())
+    ui.chart_card("Workout Sessions", charts.workouts(month))
 
 
 # ── Activity section ───────────────────────────────────────────────────────────
 if not d.body.empty:
-    c3, c4 = st.columns(2)
+    c3, c4 = st.columns(2, gap="small")
     with c3:
         ui.chart_card("Calories Burned", charts.calories(month))
     with c4:
