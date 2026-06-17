@@ -58,7 +58,7 @@ def plot_base(**overrides) -> dict:
         paper_bgcolor = "rgba(0,0,0,0)",
         plot_bgcolor  = "rgba(0,0,0,0)",
         font          = dict(color=C["text"], family="Inter, sans-serif", size=11),
-        margin        = dict(l=16, r=16, t=36, b=16),
+        margin        = dict(l=16, r=30, t=36, b=16),  # right room so edge x-labels (e.g. month-end) don't clip
         hovermode     = "x unified",
         barcornerradius = 5,
         hoverlabel    = dict(
