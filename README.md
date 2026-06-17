@@ -1,7 +1,9 @@
 # Aayu — Personal Health Dashboard
 
-A dark-themed Streamlit dashboard for wearable health data exported from the
+A Streamlit dashboard for wearable health data exported from the
 **Zepp** app (Amazfit devices). Charts are built with Plotly.
+
+![Aayu dashboard](assets/image.png)
 
 At a glance: a KPI banner (sleep score, steps, sleep, resting HR, weight), a
 month filter, and four charts — **Sleep Breakdown**, **Workout Sessions**,
