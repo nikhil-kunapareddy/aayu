@@ -35,23 +35,6 @@ AXIS = dict(
 )
 
 
-def _rgb(hex_color: str) -> tuple:
-    h = hex_color.lstrip("#")
-    return tuple(int(h[i:i + 2], 16) for i in (0, 2, 4))
-
-
-def fade(hex_color: str, top: float = 0.42, bottom: float = 0.0) -> dict:
-    """Vertical fill gradient: saturated near the line, transparent at the baseline."""
-    r, g, b = _rgb(hex_color)
-    return dict(
-        type="vertical",
-        colorscale=[
-            [0.0, f"rgba({r},{g},{b},{bottom})"],
-            [1.0, f"rgba({r},{g},{b},{top})"],
-        ],
-    )
-
-
 def plot_base(**overrides) -> dict:
     """Return a base Plotly layout dict, optionally merged with overrides."""
     cfg = dict(

@@ -31,12 +31,6 @@ def _clock(ts: pd.Series) -> pd.Series:
     return h.where(h < 14, h - 24)
 
 
-def _clock_label(v: float) -> str:
-    hh = int(round(v)) % 24
-    ampm = "AM" if hh < 12 else "PM"
-    return f"{hh % 12 or 12} {ampm}"
-
-
 # ── Sleep score ──────────────────────────────────────────────────────────────────
 # Targets on the night-centred clock: 11:30 PM (-0.5) bed, 6:30 AM (6.5) wake.
 _IDEAL_BED, _IDEAL_WAKE = -0.5, 6.5
