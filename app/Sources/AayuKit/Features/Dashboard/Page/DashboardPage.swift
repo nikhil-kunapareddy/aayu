@@ -1,48 +1,117 @@
 import SwiftUI
 
-/// The pale page under the header: a row of KPI tiles over the chart pager.
+/// The pale page under the header: the KPI tiles (a row of four, or 2 × 2 in a
+/// narrow window) over the chart pager, which takes the height that's left.
+/// When that's less than `Theme.chartMinHeight` the page scrolls instead.
+/// Past `Theme.maxContentWidth` the content stays centred at that width.
 struct DashboardPage: View {
     let d: Dashboard
+    @State private var viewport: CGFloat = 0
 
     var body: some View {
-        let k = d.kpis
+        ScrollView(.vertical) {
+            PageContent(d: d)
+                .padding(Theme.inset)
+                .frame(maxWidth: Theme.maxContentWidth)
+                .frame(maxWidth: .infinity, minHeight: viewport)
+        }
+        .scrollBounceBehavior(.basedOnSize)
+        .onGeometryChange(for: CGFloat.self) { $0.size.height } action: { viewport = $0 }
+        .measuringLayoutClass()
+    }
+}
+
+private struct PageContent: View {
+    let d: Dashboard
+    @Environment(\.layoutClass) private var layout
+
+    var body: some View {
         VStack(spacing: Theme.gap) {
-            HStack(spacing: Theme.gap) {
-                StatTile(title: "Daily Average Steps", badge: Theme.steps,
-                         value: k.avgSteps.map { $0.formatted() }, unit: nil,
-                         change: k.avgStepsChangePct.map {
-                             ChangeLabel($0, suffix: "% " + versus, higherIsBetter: true)
-                         })
-                StatTile(title: "Average Sleep", badge: Theme.sleep,
-                         value: k.avgSleepH.map { $0.formatted(.number.precision(.fractionLength(1))) }, unit: "hrs",
-                         change: k.avgSleepHChange.map {
-                             ChangeLabel($0, decimals: 1, suffix: " hrs " + versus, higherIsBetter: true)
-                         })
-                StatTile(title: "Resting Heart Rate", badge: Theme.heart,
-                         value: k.avgRestingHr.map(String.init), unit: "bpm",
-                         change: k.avgRestingHrChange.map {
-                             ChangeLabel(Double($0), suffix: " bpm " + versus, higherIsBetter: false)
-                         })
-                StatTile(title: "Weight", badge: Theme.scale,
-                         value: k.weight.map { $0.formatted(.number.precision(.fractionLength(1))) }, unit: d.units,
-                         change: k.weightChange.map {
-                             ChangeLabel($0, decimals: 1, suffix: " \(d.units) " + across, higherIsBetter: nil)
-                         })
+            Group {
+                if layout == .narrow {
+                    Grid(horizontalSpacing: Theme.gap, verticalSpacing: Theme.gap) {
+                        GridRow { steps; sleep }
+                        GridRow { heart; weight }
+                    }
+                } else {
+                    HStack(spacing: Theme.gap) { steps; sleep; heart; weight }
+                }
             }
             .fixedSize(horizontal: false, vertical: true)
             ChartPager(d: d)
         }
-        .padding(Theme.inset)
     }
 
-    /// "vs April" / "vs the 30 days before".
-    private var versus: String {
-        guard d.selection != "last30", let start = Calendar.current.date(byAdding: .month, value: -1, to: d.window.start)
-        else { return "vs the 30 days before" }
-        return "vs " + start.formatted(.dateTime.month(.wide))
+    private var k: KPIs { d.kpis }
+    private var range: String { Theme.rangePhrase(d.selection) }
+
+    private var steps: some View {
+        StatTile(title: String(localized: "Daily Average Steps"), badge: Theme.steps,
+                 value: k.avgSteps.map { $0.formatted() }, number: k.avgSteps.map(Double.init), unit: nil,
+                 spokenValue: k.avgSteps.map { String(localized: "\($0.formatted()) steps") },
+                 change: k.avgStepsChangePct.map { pct in
+                     ChangeLabel(pct, higherIsBetter: true) { versus(String(localized: "\($0)%")) }
+                 },
+                 help: String(localized: "Average steps per day in \(range), compared with \(previous)."))
     }
 
-    private var across: String {
-        d.selection == "last30" ? "over 30 days" : "this month"
+    private var sleep: some View {
+        let hours = k.avgSleepH.map { $0.formatted(.number.precision(.fractionLength(1))) }
+        return StatTile(title: String(localized: "Average Sleep"), badge: Theme.sleep,
+                        value: hours, number: k.avgSleepH, unit: String(localized: "hrs"),
+                        spokenValue: hours.map { String(localized: "\($0) hours") },
+                        change: k.avgSleepHChange.map { h in
+                            ChangeLabel(h, decimals: 1, higherIsBetter: true) { versus(String(localized: "\($0) hrs")) }
+                        },
+                        help: String(localized: "Average time asleep per night in \(range), compared with \(previous)."))
+    }
+
+    private var heart: some View {
+        StatTile(title: String(localized: "Resting Heart Rate"), badge: Theme.heart,
+                 value: k.avgRestingHr.map { $0.formatted() }, number: k.avgRestingHr.map(Double.init),
+                 unit: String(localized: "bpm"),
+                 spokenValue: k.avgRestingHr.map { String(localized: "\($0.formatted()) beats per minute") },
+                 change: k.avgRestingHrChange.map { bpm in
+                     ChangeLabel(Double(bpm), higherIsBetter: false) { versus(String(localized: "\($0) bpm")) }
+                 },
+                 help: String(localized: "Average resting heart rate in \(range), compared with \(previous)."))
+    }
+
+    private var weight: some View {
+        let value = k.weight.map { $0.formatted(.number.precision(.fractionLength(1))) }
+        return StatTile(title: String(localized: "Weight"), badge: Theme.scale,
+                        value: value, number: k.weight, unit: d.units,
+                        spokenValue: value.map { String(localized: "\($0) \(spokenUnits)") },
+                        change: k.weightChange.map { w in
+                            ChangeLabel(w, decimals: 1, higherIsBetter: nil) { across(String(localized: "\($0) \(d.units)")) }
+                        },
+                        help: String(localized: """
+                            Your last weigh-in by the end of \(range); the change runs from its first weigh-in to its last.
+                            """))
+    }
+
+    /// The month before the window ("April"), or nil for "Last 30 days".
+    private var previousMonth: String? {
+        guard d.selection != "last30",
+              let start = Calendar.current.date(byAdding: .month, value: -1, to: d.window.start) else { return nil }
+        return start.formatted(.dateTime.month(.wide))
+    }
+
+    /// What the change compares with: "April" / "the 30 days before".
+    private var previous: String { previousMonth ?? String(localized: "the 30 days before") }
+
+    /// "+12% vs April" / "+12% vs the 30 days before".
+    private func versus(_ amount: String) -> String {
+        if let previousMonth { return String(localized: "\(amount) vs \(previousMonth)") }
+        return String(localized: "\(amount) vs the 30 days before")
+    }
+
+    /// "−1.5 lbs this month" / "−1.5 lbs over 30 days".
+    private func across(_ amount: String) -> String {
+        d.selection == "last30" ? String(localized: "\(amount) over 30 days") : String(localized: "\(amount) this month")
+    }
+
+    private var spokenUnits: String {
+        d.units == "kg" ? String(localized: "kilograms") : String(localized: "pounds")
     }
 }

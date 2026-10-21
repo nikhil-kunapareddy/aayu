@@ -1,18 +1,27 @@
 import Charts
 import SwiftUI
 
-// Axis and marker pieces the dashboard charts share. Charts hover with a
-// rule and a `HoverCard` for the day (or week) under the pointer.
+// Axis and marker pieces the dashboard charts share. Charts hover with a rule
+// (`Theme.hoverRule`), a point on the hovered value and a `HoverCard` for the
+// day (or week) under the pointer. Legends live in the card's header, not in
+// the plot, so every plot starts at the same height.
 
-/// Horizontal gridlines with leading labels.
-@MainActor var gridAxis: some AxisContent {
-    AxisMarks(position: .leading) { _ in
+/// Horizontal gridlines with leading labels every `step`; the top label
+/// carries the unit ("600 kcal").
+@MainActor func valueAxis(step: Double, unit: @escaping (Double) -> String) -> some AxisContent {
+    AxisMarks(position: .leading, values: .stride(by: step)) { value in
         AxisGridLine().foregroundStyle(Theme.grid)
-        AxisValueLabel().font(.system(size: 10)).foregroundStyle(Theme.sub)
+        AxisValueLabel {
+            if let v = value.as(Double.self) {
+                Text(value.index == value.count - 1 ? unit(v) : v.formatted(.number.precision(.fractionLength(0...1))))
+            }
+        }
+        .font(Theme.micro)
+        .foregroundStyle(Theme.sub)
     }
 }
 
-/// A card-colored dot with a colored ring, for line markers.
+/// A card-colored dot with a colored ring, for weigh-in markers.
 struct Dot: View {
     let color: Color
 
@@ -24,22 +33,42 @@ struct Dot: View {
     }
 }
 
+/// The 7-pt point on the hovered value, ringed in the card color so it stands off the line.
+struct HoverDot: View {
+    let color: Color
+
+    var body: some View {
+        Circle()
+            .fill(color)
+            .frame(width: 7, height: 7)
+            .padding(1.5)
+            .background(Theme.card, in: Circle())
+    }
+}
+
 extension View {
     /// X axis for a run of days: the domain covers start…end (whole days), with
-    /// labels on the first and last day and every `everyDays` between. The end
-    /// labels hang inward so they aren't cut off at the chart's edges.
-    /// `domainStart` widens the domain leftward without moving the labels.
-    func dayAxis(from start: Date, to end: Date, everyDays: Int = 7, domainStart: Date? = nil) -> some View {
-        let ticks = Theme.dayTicks(from: start, to: end, everyDays: everyDays)
-        return chartXScale(domain: min(start, domainStart ?? start)...Theme.dayAfter(end))
+    /// a label and a faint gridline on each Monday. Labels near the ends hang
+    /// inward so they aren't cut off at the chart's edges.
+    func dayAxis(from start: Date, to end: Date) -> some View {
+        let mondays = Theme.mondays(from: start, to: end)
+        let last = Theme.dayAfter(end)
+        return chartXScale(domain: start...last)
             .chartXAxis {
-                AxisMarks(values: ticks) { value in
-                    AxisValueLabel(format: .dateTime.month(.abbreviated).day(),
-                                   anchor: value.index == 0 ? .topLeading
-                                       : value.index == value.count - 1 ? .topTrailing : .top)
-                        .font(.system(size: 10))
+                AxisMarks(values: mondays) { value in
+                    AxisGridLine().foregroundStyle(Theme.grid.opacity(0.7))
+                    AxisValueLabel(format: .dateTime.month(.abbreviated).day(), anchor: anchor(value.as(Date.self), start, last))
+                        .font(Theme.micro)
                         .foregroundStyle(Theme.sub)
                 }
             }
     }
+}
+
+/// A day label's anchor: hung inward within two days of either edge.
+private func anchor(_ date: Date?, _ start: Date, _ end: Date) -> UnitPoint {
+    guard let date else { return .top }
+    if date.timeIntervalSince(start) < 2 * 86400 { return .topLeading }
+    if end.timeIntervalSince(date) < 2 * 86400 { return .topTrailing }
+    return .top
 }

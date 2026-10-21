@@ -6,7 +6,7 @@ struct HoverCard: View {
     let rows: [(String, String, Color)]
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 5) {
+        VStack(alignment: .leading, spacing: 4) {
             Text(title).fontWeight(.semibold).foregroundStyle(Theme.ink)
             ForEach(rows.indices, id: \.self) { i in
                 HStack(spacing: 6) {
@@ -17,8 +17,8 @@ struct HoverCard: View {
                 }
             }
         }
-        .font(.system(size: 11))
-        .padding(10)
+        .font(Theme.micro)
+        .padding(12)
         .frame(minWidth: 150)
         .background(Theme.card, in: .rect(cornerRadius: 12))
         .overlay(RoundedRectangle(cornerRadius: 12).strokeBorder(Theme.border))

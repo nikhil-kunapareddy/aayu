@@ -45,18 +45,30 @@ struct FormatTests {
         #expect(Theme.dayAfter(try date("2026-05-31T00:00:00Z"), calendar: calendar) == (try date("2026-06-01T00:00:00Z")))
     }
 
-    @Test func dayTicksWeekly() throws {
-        let ticks = Theme.dayTicks(from: try date("2026-05-01T00:00:00Z"), to: try date("2026-05-31T00:00:00Z"),
-                                   everyDays: 7, calendar: calendar)
-        let expected = try ["01", "08", "15", "22", "31"].map { try date("2026-05-\($0)T12:00:00Z") }
-        #expect(ticks == expected)   // the 29th would crowd the 31st
+    /// A Monday-first calendar in UTC, like the app's `mondayCalendar` but fixed.
+    var mondayFirst: Calendar {
+        var cal = calendar
+        cal.firstWeekday = 2
+        return cal
     }
 
-    @Test func dayTicksFortnightly() throws {
-        let ticks = Theme.dayTicks(from: try date("2026-04-01T00:00:00Z"), to: try date("2026-05-31T00:00:00Z"),
-                                   everyDays: 14, calendar: calendar)
-        let expected = try ["04-01", "04-15", "04-29", "05-13", "05-31"].map { try date("2026-\($0)T12:00:00Z") }
+    @Test func mondaysAtNoon() throws {
+        let ticks = Theme.mondays(from: try date("2026-05-01T00:00:00Z"), to: try date("2026-05-31T00:00:00Z"),
+                                  calendar: mondayFirst)
+        let expected = try ["04", "11", "18", "25"].map { try date("2026-05-\($0)T12:00:00Z") }
         #expect(ticks == expected)
+        // A Monday at either end counts.
+        let june = Theme.mondays(from: try date("2026-06-01T00:00:00Z"), to: try date("2026-06-08T00:00:00Z"),
+                                 calendar: mondayFirst)
+        #expect(june == (try ["01", "08"].map { try date("2026-06-\($0)T12:00:00Z") }))
+    }
+
+    @Test func weekStartsCoverTheAxis() throws {
+        let weeks = Theme.weekStarts(from: try date("2026-04-01T00:00:00Z"), through: try date("2026-05-31T00:00:00Z"),
+                                     calendar: calendar)   // firstWeekday is forced to Monday
+        #expect(weeks.count == 9)
+        #expect(weeks.first == (try date("2026-03-30T00:00:00Z")))
+        #expect(weeks.last == (try date("2026-05-25T00:00:00Z")))
     }
 
     @Test(arguments: [
@@ -91,7 +103,7 @@ struct FormatTests {
 
     @MainActor @Test func chartCaptions() throws {
         let d = try Sample.dashboard()
-        #expect(WorkoutsChart.caption(d.workouts) == "6 sessions")
+        #expect(WorkoutsChart.caption(d.workouts, calendar: mondayFirst) == "6 sessions · last 9 weeks")
         #expect(CaloriesChart.caption(d.calories) == "avg 390 kcal")
         #expect(CaloriesChart.caption([]) == nil)
     }

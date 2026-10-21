@@ -10,7 +10,7 @@ struct DashboardView: View {
 
     var body: some View {
         content
-            .frame(minWidth: 1180, minHeight: 860)
+            .frame(minWidth: 720, minHeight: 600)
             .ignoresSafeArea()   // the header runs up under the traffic lights
             .task { await model.start() }
             .onChange(of: folder) { Task { await model.open() } }

@@ -1,40 +1,52 @@
 import SwiftUI
 
 /// Greeting and subtitle, the month control and Settings button, and the
-/// Sleep Score panel, on the dark header.
+/// Sleep Score panel, on the dark header. The background runs edge to edge;
+/// the content lines up with the page's tiles (same inset, same width cap).
 struct Header: View {
     let d: Dashboard
+    @Environment(\.colorScheme) private var colorScheme   // the window's, outside the override below
 
     var body: some View {
         VStack(alignment: .leading, spacing: 20) {
             HStack(alignment: .center, spacing: 12) {
-                VStack(alignment: .leading, spacing: 6) {
+                VStack(alignment: .leading, spacing: 4) {
                     Text("\(Greeting.now), \(Greeting.firstName)")
-                        .font(.system(size: 28, weight: .semibold))
+                        .font(Theme.largeTitle)
                         .foregroundStyle(.white)
+                        .accessibilityAddTraits(.isHeader)
                     Text("Here’s your health overview for \(Theme.rangePhrase(d.selection)).")
-                        .font(.system(size: 14))
+                        .font(Theme.body)
                         .foregroundStyle(.white.opacity(0.7))
                 }
-                Spacer()
+                .lineLimit(1)
+                .minimumScaleFactor(0.85)
+                Spacer(minLength: 16)
                 MonthControl(d: d)
                 SettingsLink {
                     Image(systemName: "gearshape")
-                        .font(.system(size: 14, weight: .semibold))
+                        .font(Theme.body.weight(.semibold))
                         .foregroundStyle(.white)
                         .frame(width: 40, height: 40)
-                        .frosted(Circle())
-                        .contentShape(Circle())
                 }
-                .buttonStyle(.plain)
+                .buttonStyle(FrostedButtonStyle(shape: Circle()))
                 .help("Settings (⌘,)")
+                .accessibilityLabel("Settings")
             }
             ScorePanel(d: d)
         }
-        .padding(.horizontal, Theme.inset + 4)
+        .padding(.horizontal, Theme.inset)
         .padding(.top, 40)       // below the traffic lights
-        .padding(.bottom, 22)
+        .padding(.bottom, 24)
+        .frame(maxWidth: Theme.maxContentWidth)
+        .frame(maxWidth: .infinity)
         .background(HeaderBackground())
+        .overlay(alignment: .bottom) {
+            // In Dark the page is navy too; a faint line keeps the header's edge.
+            if colorScheme == .dark { Rectangle().fill(Theme.headerRule).frame(height: 1) }
+        }
+        .environment(\.colorScheme, .dark)   // the header is dark in both appearances
+        .measuringLayoutClass()
     }
 }
 
@@ -53,6 +65,7 @@ struct HeaderBackground: View {
             .clipped()
             .gesture(WindowDragGesture())
             .allowsWindowActivationEvents(true)
+            .accessibilityHidden(true)
     }
 }
 
@@ -60,9 +73,9 @@ struct HeaderBackground: View {
 enum Greeting {
     static var now: String {
         switch Calendar.current.component(.hour, from: Date()) {
-        case 5..<12: "Good morning"
-        case 12..<17: "Good afternoon"
-        default: "Good evening"
+        case 5..<12: String(localized: "Good morning")
+        case 12..<17: String(localized: "Good afternoon")
+        default: String(localized: "Good evening")
         }
     }
 

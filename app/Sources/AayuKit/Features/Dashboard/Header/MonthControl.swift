@@ -1,6 +1,7 @@
 import SwiftUI
 
-/// ‹ | 📅 May 2026 ⌄ | › in one frosted capsule.
+/// ‹ | 📅 May 2026 ⌄ | › in one frosted capsule. Each part highlights on its
+/// own; the label opens a native menu of the ranges, grouped by year.
 struct MonthControl: View {
     let d: Dashboard
     @Environment(DashboardModel.self) private var model
@@ -8,87 +9,95 @@ struct MonthControl: View {
     var body: some View {
         HStack(spacing: 0) {
             Button { model.step(older: true) } label: {
-                Image(systemName: "chevron.left").frame(width: 42, height: 40).contentShape(Rectangle())
+                Image(systemName: "chevron.left").frame(width: 40, height: 40)
             }
+            .buttonStyle(FrostedButtonStyle(shape: UnevenRoundedRectangle(topLeadingRadius: 20, bottomLeadingRadius: 20),
+                                            standalone: false))
             .disabled(!model.canStep(older: true))
             .help("Previous month (⌘←)")
+            .accessibilityLabel("Previous month")
             separator
-            RangePicker(d: d)
+            RangeMenu(d: d)
             separator
             Button { model.step(older: false) } label: {
-                Image(systemName: "chevron.right").frame(width: 42, height: 40).contentShape(Rectangle())
+                Image(systemName: "chevron.right").frame(width: 40, height: 40)
             }
+            .buttonStyle(FrostedButtonStyle(shape: UnevenRoundedRectangle(bottomTrailingRadius: 20, topTrailingRadius: 20),
+                                            standalone: false))
             .disabled(!model.canStep(older: false))
             .help("Next month (⌘→)")
+            .accessibilityLabel("Next month")
         }
-        .buttonStyle(.plain)
-        .font(.system(size: 14, weight: .semibold))
+        .font(Theme.body.weight(.semibold))
         .foregroundStyle(.white)
         .frosted(Capsule())
+        .accessibilityElement(children: .contain)
     }
 
     private var separator: some View {
-        Rectangle().fill(Theme.panelStroke).frame(width: 1, height: 22)
+        Rectangle().fill(Theme.panelStroke).frame(width: 1, height: 24).accessibilityHidden(true)
     }
 }
 
-/// The month label; opens a popover listing the months (and "Last 30 days").
-struct RangePicker: View {
+/// The range label; opens a menu of "Last 30 days" and the months, a section per year.
+struct RangeMenu: View {
     let d: Dashboard
     @Environment(DashboardModel.self) private var model
-    @State private var isOpen = false
 
     var body: some View {
-        Button { isOpen.toggle() } label: {
-            HStack(spacing: 8) {
-                Image(systemName: "calendar")
-                Text(Theme.rangeLabel(d.selection)).font(.system(size: 14, weight: .medium))
-                Image(systemName: "chevron.down").font(.system(size: 10, weight: .bold)).opacity(0.7)
-            }
-            .padding(.horizontal, 16)
-            .frame(height: 40)
-            .contentShape(Rectangle())
-        }
-        .popover(isPresented: $isOpen, arrowEdge: .bottom) {
-            ScrollView {
-                VStack(spacing: 2) {
-                    ForEach(d.options, id: \.self) { option in
-                        RangeRow(label: Theme.rangeLabel(option), selected: option == d.selection) {
-                            model.select(option)
-                            isOpen = false
+        Menu {
+            Picker("Period", selection: Binding(get: { d.selection }, set: { model.select($0) })) {
+                ForEach(Self.sections(d.options), id: \.title) { section in
+                    if section.title.isEmpty {
+                        ForEach(section.options, id: \.self) { Text(Theme.rangeLabel($0)).tag($0) }
+                    } else {
+                        Section(section.title) {
+                            ForEach(section.options, id: \.self) { Text(Self.monthName($0)).tag($0) }
                         }
                     }
                 }
-                .padding(6)
             }
-            .frame(width: 210)
-            .frame(maxHeight: 360)
-            .fixedSize(horizontal: false, vertical: true)
+            .pickerStyle(.inline)
+            .labelsHidden()
+        } label: {
+            HStack(spacing: 8) {
+                Image(systemName: "calendar")
+                Text(Theme.rangeLabel(d.selection)).font(Theme.body.weight(.medium))
+                Image(systemName: "chevron.down").font(Theme.micro.weight(.bold)).opacity(0.7)
+            }
+            .padding(.horizontal, 16)
+            .frame(height: 40)
         }
+        .menuStyle(.button)
+        .menuIndicator(.hidden)
+        .buttonStyle(FrostedButtonStyle(shape: Rectangle(), standalone: false))
+        .fixedSize()
+        .help("Choose a month")
+        .accessibilityLabel("Period")
+        .accessibilityValue(Theme.rangeLabel(d.selection))
     }
-}
 
-/// One option in the range popover, highlighted on hover, ticked when selected.
-struct RangeRow: View {
-    let label: String
-    let selected: Bool
-    let action: () -> Void
-    @State private var hovering = false
-
-    var body: some View {
-        Button(action: action) {
-            HStack {
-                Text(label).foregroundStyle(Theme.ink)
-                Spacer()
-                if selected { Image(systemName: "checkmark").foregroundStyle(Theme.blue) }
+    /// "Last 30 days" on its own, then the months by year, newest first
+    /// (the backend's order). A section's title is its year ("" for the loose options).
+    static func sections(_ options: [String]) -> [(title: String, options: [String])] {
+        var sections: [(title: String, options: [String])] = []
+        for option in options {
+            let year = Theme.month(option) == nil ? "" : String(option.prefix(4))
+            if let last = sections.last, last.title == year {
+                sections[sections.count - 1].options.append(option)
+            } else {
+                sections.append((year, [option]))
             }
-            .font(.system(size: 13, weight: selected ? .semibold : .regular))
-            .padding(.horizontal, 12)
-            .frame(height: 30)
-            .background(hovering ? Theme.page : .clear, in: .rect(cornerRadius: 8))
-            .contentShape(Rectangle())
         }
-        .buttonStyle(.plain)
-        .onHover { hovering = $0 }
+        return sections
+    }
+
+    /// '2026-05' → "May".
+    static func monthName(_ option: String, locale: Locale = .autoupdatingCurrent,
+                          timeZone: TimeZone = .autoupdatingCurrent) -> String {
+        guard let date = Theme.month(option, timeZone: timeZone) else { return option }
+        var calendar = Theme.gregorian(timeZone)
+        calendar.locale = locale
+        return date.formatted(Date.FormatStyle(locale: locale, calendar: calendar, timeZone: timeZone).month(.wide))
     }
 }

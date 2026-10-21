@@ -1,7 +1,9 @@
+import AppKit
 import SwiftUI
 
 /// Settings (⌘,). Changes apply as soon as they're made, as in macOS Settings;
 /// the dashboard window watches the same @AppStorage keys and refreshes.
+/// Controls use the system accent color.
 struct SettingsView: View {
     @Environment(DashboardModel.self) private var model
     @AppStorage(Pref.folder) private var folder = ""
@@ -16,16 +18,29 @@ struct SettingsView: View {
         Form {
             Section("Data") {
                 LabeledContent("Zepp data folder") {
-                    HStack {
+                    HStack(spacing: 6) {
+                        if !folder.isEmpty {
+                            Image(nsImage: Self.icon(for: folder))
+                                .resizable()
+                                .frame(width: 16, height: 16)
+                                .accessibilityHidden(true)
+                        }
                         Text(folder.isEmpty ? "None" : (folder as NSString).abbreviatingWithTildeInPath)
                             .lineLimit(1)
                             .truncationMode(.middle)
                             .foregroundStyle(folder.isEmpty ? .secondary : .primary)
                             .help(folder)
-                        Button("Choose…") { choosing = true }
                     }
                 }
                 if let status { statusLine(status) }
+                HStack {
+                    Spacer()
+                    Button("Show in Finder") {
+                        NSWorkspace.shared.activateFileViewerSelecting([URL(fileURLWithPath: folder)])
+                    }
+                    .disabled(folder.isEmpty || status?.exists == false)
+                    Button("Choose…") { choosing = true }
+                }
                 Toggle("Reload when a new export appears", isOn: $autoReload)
             }
             Section("Display") {
@@ -55,11 +70,17 @@ struct SettingsView: View {
         }
     }
 
+    /// The folder's icon as Finder shows it (a plain folder if it's gone).
+    static func icon(for path: String) -> NSImage {
+        FileManager.default.fileExists(atPath: path) ? NSWorkspace.shared.icon(forFile: path)
+            : NSWorkspace.shared.icon(for: .folder)
+    }
+
     private func statusLine(_ s: FolderStatus) -> some View {
         let ok = s.exists && !s.found.isEmpty
-        let text = !s.exists ? "This folder doesn't exist any more."
-            : s.found.isEmpty ? "No Zepp data here. Choose the folder that contains SLEEP, ACTIVITY, BODY…"
-            : "Found \(s.found.count) of \(s.total): " + s.found.joined(separator: ", ")
+        let text = !s.exists ? String(localized: "This folder doesn’t exist any more.")
+            : s.found.isEmpty ? String(localized: "No Zepp data here. Choose the folder that contains SLEEP, ACTIVITY, BODY…")
+            : String(localized: "Found \(s.found.count) of \(s.total): \(s.found.formatted(.list(type: .and, width: .narrow)))")
         return Label {
             Text(text).foregroundStyle(.secondary)
         } icon: {

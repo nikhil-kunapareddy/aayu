@@ -15,58 +15,82 @@ struct HypnogramChart: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
-            HStack(alignment: .top, spacing: 24) {
-                summary
-                Spacer(minLength: 0)
-                breakdown
+            // Side by side when they fit; otherwise the breakdown goes under the summary.
+            ViewThatFits(in: .horizontal) {
+                HStack(alignment: .top, spacing: 24) {
+                    summary
+                    Spacer(minLength: 0)
+                    breakdown(spacing: 32)
+                }
+                VStack(alignment: .leading, spacing: 12) {
+                    summary
+                    breakdown(spacing: 24)
+                }
             }
             if night.segments.isEmpty {
-                Text("No stage data for this night.")
-                    .font(.system(size: 13))
-                    .foregroundStyle(Theme.sub)
-                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                EmptyChart(title: String(localized: "No Stage Data"), icon: "moon.zzz",
+                           message: String(localized: "The watch didn't record sleep stages for this night."))
             } else {
-                chart.onGeometryChange(for: CGFloat.self) { $0.size.width } action: { width = $0 }
+                chart
+                    .onGeometryChange(for: CGFloat.self) { $0.size.width } action: { width = $0 }
+                    .accessibilityChartDescriptor(HypnogramDescriptor(night: night))
             }
         }
     }
 
-    /// "6 h 23 min" over "asleep · 7h 29m total".
+    /// "7h 36m" (as `Theme.duration` writes it) over "asleep · 7h 52m total".
     private var summary: some View {
-        let number = { (n: Int) in Text("\(n)").font(.system(size: 30, weight: .semibold)).foregroundStyle(Theme.ink) }
-        let unit = { (u: String) in Text(u).font(.system(size: 14, weight: .medium)).foregroundStyle(Theme.sub) }
-        return VStack(alignment: .leading, spacing: 1) {
-            Text("\(number(night.asleep / 60))\(unit(" h "))\(number(night.asleep % 60))\(unit(" min"))")
-            Text("asleep · " + Theme.duration(minutes: night.duration) + " total")
-                .font(.system(size: 12))
+        let number = { (n: Int) in Text(n.formatted()).font(Theme.metric).foregroundStyle(Theme.ink) }
+        let unit = { (u: String) in Text(u).font(Theme.title3.weight(.medium)).foregroundStyle(Theme.sub) }
+        let hours = night.asleep / 60, minutes = night.asleep % 60
+        return VStack(alignment: .leading, spacing: 2) {
+            Group {
+                if hours > 0 {
+                    Text("\(number(hours))\(unit("h")) \(number(minutes))\(unit("m"))")
+                } else {
+                    Text("\(number(minutes))\(unit("m"))")
+                }
+            }
+            .accessibilityLabel(String(localized: "\(Theme.spokenDuration(minutes: night.asleep)) asleep"))
+            Text("asleep · \(Theme.duration(minutes: night.duration)) total")
+                .font(Theme.caption)
                 .foregroundStyle(Theme.sub)
+                .accessibilityLabel(String(localized: "\(Theme.spokenDuration(minutes: night.duration)) in bed"))
         }
-        .monospacedDigit()
+        .accessibilityElement(children: .combine)
     }
 
     /// Each stage's time and share, in the chart's top-to-bottom order, with a
-    /// bar scaled to the largest share.
-    private var breakdown: some View {
-        let longest = max(night.totals.map(\.share).max() ?? 0, 0.01)
-        return HStack(alignment: .top, spacing: 32) {
-            ForEach(Theme.stages.sorted { $0.level > $1.level }, id: \.name) { stage in
-                let t = night.totals.first { $0.stage == stage.name }
+    /// bar scaled to the largest share. Shares are whole percentages that sum to 100.
+    private func breakdown(spacing: CGFloat) -> some View {
+        let stages = Theme.stagesByDepth
+        let totals = stages.map { stage in night.totals.first { $0.stage == stage.name } }
+        let percents = Theme.wholePercents(totals.map { $0?.share ?? 0 })
+        let longest = max(totals.map { $0?.share ?? 0 }.max() ?? 0, 0.01)
+        return HStack(alignment: .top, spacing: spacing) {
+            ForEach(stages.indices, id: \.self) { i in
+                let t = totals[i]
                 VStack(alignment: .leading, spacing: 6) {
-                    HStack(spacing: 5) {
-                        Text(stage.name).fontWeight(.semibold)
+                    HStack(spacing: 4) {
+                        Text(stages[i].name).fontWeight(.semibold)
                         Text(Theme.duration(minutes: t?.minutes ?? 0))
                     }
                     .foregroundStyle(Theme.ink)
-                    HStack(spacing: 6) {
+                    HStack(spacing: 8) {
                         RoundedRectangle(cornerRadius: 2.5)
-                            .fill(stage.color)
+                            .fill(stages[i].color)
                             .frame(width: max(4, 64 * (t?.share ?? 0) / longest), height: 10)
-                        Text(Theme.percent(t?.share ?? 0)).foregroundStyle(Theme.sub)
+                        Text(Theme.percent(whole: percents[i])).foregroundStyle(Theme.sub)
                     }
                 }
+                .fixedSize()
+                .accessibilityElement(children: .ignore)
+                .accessibilityLabel(stages[i].name)
+                .accessibilityValue(String(localized:
+                    "\(Theme.spokenDuration(minutes: t?.minutes ?? 0)), \(Theme.percent(whole: percents[i]))"))
             }
         }
-        .font(.system(size: 12))
+        .font(Theme.caption)
         .monospacedDigit()
     }
 
@@ -82,6 +106,7 @@ struct HypnogramChart: View {
                     .foregroundStyle(LinearGradient(colors: [Theme.stageColor(j.fromStage), Theme.stageColor(j.toStage)],
                                                     startPoint: dir > 0 ? .bottom : .top,
                                                     endPoint: dir > 0 ? .top : .bottom))
+                    .accessibilityHidden(true)
             }
             ForEach(night.segments) { s in
                 let level = Theme.stageLevel(s.stage)
@@ -89,21 +114,26 @@ struct HypnogramChart: View {
                               yStart: .value("Level", level - Self.band), yEnd: .value("Level", level + Self.band))
                     .foregroundStyle(Theme.stageColor(s.stage))
                     .cornerRadius(3)
+                    .accessibilityLabel(s.stage)
+                    .accessibilityValue(s.spoken)
             }
             // Bedtime and wake time, over a baseline.
-            RuleMark(x: .value("At", night.start)).foregroundStyle(Theme.sub.opacity(0.35))
-            RuleMark(x: .value("At", night.end)).foregroundStyle(Theme.sub.opacity(0.35))
-            RuleMark(y: .value("Level", Self.floor)).foregroundStyle(Theme.sub.opacity(0.35))
-            if let s = hoveredSpan {
-                RuleMark(x: .value("At", hovered ?? s.start))
-                    .foregroundStyle(Theme.sub.opacity(0.5))
+            RuleMark(x: .value("At", night.start)).foregroundStyle(Theme.sub.opacity(0.35)).accessibilityHidden(true)
+            RuleMark(x: .value("At", night.end)).foregroundStyle(Theme.sub.opacity(0.35)).accessibilityHidden(true)
+            RuleMark(y: .value("Level", Self.floor)).foregroundStyle(Theme.sub.opacity(0.35)).accessibilityHidden(true)
+            if let s = hoveredSpan, let at = hovered {
+                RuleMark(x: .value("At", at))
+                    .foregroundStyle(Theme.hoverRule)
                     .annotation(position: .top, spacing: 0, overflowResolution: .init(x: .fit(to: .chart), y: .disabled)) {
                         HoverCard(title: s.stage, rows: [(
-                            s.start.formatted(date: .omitted, time: .shortened) + " – "
-                                + s.end.formatted(date: .omitted, time: .shortened),
-                            Theme.duration(minutes: Int(s.end.timeIntervalSince(s.start) / 60)),
+                            (s.start..<s.end).formatted(.interval.hour().minute()),
+                            Theme.duration(minutes: s.minutes),
                             Theme.stageColor(s.stage))])
                     }
+                    .accessibilityHidden(true)
+                PointMark(x: .value("At", at), y: .value("Level", Theme.stageLevel(s.stage)))
+                    .symbol { HoverDot(color: Theme.stageColor(s.stage)) }
+                    .accessibilityHidden(true)
             }
         }
         .chartYScale(domain: Self.floor...3.42)
@@ -117,16 +147,16 @@ struct HypnogramChart: View {
                     AxisValueLabel(anchor: first ? .topLeading : .topTrailing) {
                         if let date = value.as(Date.self) {
                             Text(date, format: .dateTime.hour().minute())
-                                .font(.system(size: 10, weight: .semibold))
+                                .font(Theme.micro.weight(.semibold))
                                 .foregroundStyle(Theme.ink)
-                                .padding(.horizontal, 5)
+                                .padding(.horizontal, 6)
                                 .padding(.vertical, 2)
                                 .background(Theme.page, in: .rect(cornerRadius: 4))
                         }
                     }
                 } else {
                     AxisValueLabel(format: .dateTime.hour(), anchor: .top)
-                        .font(.system(size: 10, weight: .medium))
+                        .font(Theme.micro.weight(.medium))
                         .foregroundStyle(Theme.sub)
                 }
             }
@@ -181,5 +211,47 @@ struct HypnogramChart: View {
     private var hoveredSpan: StageSpan? {
         guard let hovered else { return nil }
         return night.segments.first { $0.start <= hovered && hovered < $0.end }
+    }
+}
+
+/// The hypnogram for VoiceOver's chart navigation and Audio Graphs: time since
+/// bedtime across, stage depth up (Deep 0 … Awake 3), one point per stage run.
+struct HypnogramDescriptor: AXChartDescriptorRepresentable {
+    let night: Hypnogram
+
+    func makeChartDescriptor() -> AXChartDescriptor {
+        let start = night.start
+        let span = max(night.end.timeIntervalSince(start) / 60, 1)
+        let names = Dictionary(uniqueKeysWithValues: Theme.stages.map { ($0.level, $0.name) })
+        let time = AXNumericDataAxisDescriptor(title: String(localized: "Time"), range: 0...span, gridlinePositions: []) {
+            start.addingTimeInterval($0 * 60).formatted(date: .omitted, time: .shortened)
+        }
+        let stage = AXNumericDataAxisDescriptor(title: String(localized: "Stage"), range: 0...3, gridlinePositions: [0, 1, 2, 3]) {
+            names[$0.rounded()] ?? ""
+        }
+        let points = night.segments.map { s in
+            AXDataPoint(x: s.start.timeIntervalSince(start) / 60, y: Theme.stageLevel(s.stage),
+                        label: "\(s.stage), \(s.spoken)")
+        }
+        let summary = String(localized: """
+            \(Theme.spokenDuration(minutes: night.asleep)) asleep, from \(start.formatted(date: .omitted, time: .shortened)) \
+            to \(night.end.formatted(date: .omitted, time: .shortened)).
+            """)
+        return AXChartDescriptor(title: String(localized: "Sleep Breakdown"), summary: summary, xAxis: time, yAxis: stage,
+                                 additionalAxes: [],
+                                 series: [AXDataSeriesDescriptor(name: String(localized: "Stages"), isContinuous: false,
+                                                                 dataPoints: points)])
+    }
+
+    func updateChartDescriptor(_ descriptor: AXChartDescriptor) {}
+}
+
+extension StageSpan {
+    /// Its length in whole minutes.
+    var minutes: Int { Int((end.timeIntervalSince(start) / 60).rounded()) }
+
+    /// "1:12 – 2:03 AM, 51 minutes" — a band, for VoiceOver.
+    var spoken: String {
+        String(localized: "\((start..<end).formatted(.interval.hour().minute())), \(Theme.spokenDuration(minutes: minutes))")
     }
 }

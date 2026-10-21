@@ -6,7 +6,7 @@ extension View {
         padding(inset)
             .background(Theme.card, in: .rect(cornerRadius: Theme.cardRadius))
             .overlay(RoundedRectangle(cornerRadius: Theme.cardRadius).strokeBorder(Theme.border))
-            .shadow(color: Theme.night.opacity(0.04), radius: 8, y: 2)
+            .shadow(color: Theme.night.opacity(0.06), radius: 12, y: 4)
     }
 
     /// A frosted shape on the dark header.
