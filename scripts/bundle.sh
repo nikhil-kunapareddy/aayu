@@ -26,6 +26,7 @@ rm -rf "$app"
 mkdir -p "$contents/MacOS" "$contents/Resources"
 cp "$binary" "$contents/MacOS/Aayu"
 cp app/Info.plist "$contents/Info.plist"
+cp app/PrivacyInfo.xcprivacy "$contents/Resources/PrivacyInfo.xcprivacy"
 cp "$icon" "$contents/Resources/Aayu.icns"
 
 if [ -d "$backend" ]; then

@@ -1,15 +1,14 @@
 import SwiftUI
-import UniformTypeIdentifiers
 
 /// Settings (⌘,). Changes apply as soon as they're made, as in macOS Settings;
 /// the dashboard window watches the same @AppStorage keys and refreshes.
 struct SettingsView: View {
     @Environment(DashboardModel.self) private var model
     @AppStorage(Pref.folder) private var folder = ""
-    @AppStorage(Pref.units) private var units = "lbs"
-    @AppStorage(Pref.defaultRange) private var defaultRange = "month"
+    @AppStorage(Pref.units) private var units = Units.lbs
+    @AppStorage(Pref.defaultRange) private var defaultRange = DefaultRange.month
     @AppStorage(Pref.autoReload) private var autoReload = true
-    @AppStorage(Pref.appearance) private var appearance = "light"
+    @AppStorage(Pref.appearance) private var appearance = Appearance.light
     @State private var status: FolderStatus?
     @State private var choosing = false
 
@@ -31,28 +30,26 @@ struct SettingsView: View {
             }
             Section("Display") {
                 Picker("Appearance", selection: $appearance) {
-                    Text("System").tag("system")
-                    Text("Light").tag("light")
-                    Text("Dark").tag("dark")
+                    Text("System").tag(Appearance.system)
+                    Text("Light").tag(Appearance.light)
+                    Text("Dark").tag(Appearance.dark)
                 }
                 .pickerStyle(.segmented)
                 Picker("Weight units", selection: $units) {
-                    Text("lbs").tag("lbs")
-                    Text("kg").tag("kg")
+                    Text("lbs").tag(Units.lbs)
+                    Text("kg").tag(Units.kg)
                 }
                 .pickerStyle(.segmented)
                 Picker("Open on", selection: $defaultRange) {
-                    Text("Latest month").tag("month")
-                    Text("Last 30 days").tag("last30")
+                    Text("Latest month").tag(DefaultRange.month)
+                    Text("Last 30 days").tag(DefaultRange.last30)
                 }
             }
         }
         .formStyle(.grouped)
         .frame(width: 500)
         .fixedSize(horizontal: false, vertical: true)
-        .fileImporter(isPresented: $choosing, allowedContentTypes: [.folder]) { result in
-            if case .success(let url) = result { folder = url.path }
-        }
+        .zeppFolderChooser(isPresented: $choosing)
         .task(id: folder) {
             status = folder.isEmpty ? nil : await model.status(of: folder)
         }

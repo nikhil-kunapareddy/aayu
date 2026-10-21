@@ -26,7 +26,10 @@ screen shows the app icon itself (`AayuLogo`).
   Xcode is NOT needed: SwiftPM builds the binary, `scripts/bundle.sh` wraps it.
 - Everything generated lives in `~/Library/Caches/aayu` (venv, Swift and
   PyInstaller builds, the bundles); only the signed app is copied to `dist/`.
-- Logs from `make run`: `~/Library/Caches/aayu/build/Aayu-dev.log`.
+- `make test` — backend pytest + app Swift Testing; `make lint` — ruff + mypy --strict.
+- Logs from `make run`: `~/Library/Caches/aayu/build/Aayu-dev.log` (helper stderr is
+  echoed there); the app logs to unified logging: `/usr/bin/log stream --level debug
+  --predicate 'subsystem == "io.github.nikhil-kunapareddy.aayu"'` (zsh's `log` is a builtin).
 
 ## Architecture — keep this separation
 **The backend owns data, the app owns presentation.** They talk only over a
@@ -39,18 +42,21 @@ JSON lines on its stdin/stdout. No network port.
   - `server.py`  # the JSON-lines protocol (`Server.METHODS`), folder watcher
   - `__main__.py`
   - `backend.spec` (PyInstaller), `pyproject.toml` + `uv.lock` (pinned deps), `tests/` (pytest, synthetic data)
-- `app/` — SwiftUI (SwiftPM package, Swift 5 language mode, macOS 15+).
-  - `Backend.swift`        # actor: spawns the helper, request ids, replay on relaunch
-  - `Payload.swift`        # Decodable mirrors of the backend's JSON
-  - `DashboardModel.swift` # @Observable state + `Pref` (settings keys/defaults)
-  - `DashboardView.swift`  # header (greeting, month control, score panel), page (tiles, chart pager), prompts
-  - `Charts.swift`         # Swift Charts views (hypnogram, workouts, calories, weight) + hover cards
-  - `SettingsView.swift`   # ⌘, — folder, appearance, units, default range, auto-reload
-  - `Theme.swift`          # colours, spacing, formatting — the one place to restyle
-  - `AayuApp.swift`, `Info.plist`
+- `app/` — SwiftUI (SwiftPM, Swift 6 language mode, macOS 15+). Library
+  `AayuKit` holds everything; executable `Aayu` is just `main.swift`.
+  - `App/`          # AayuApp (scenes), AppCommands (menus)
+  - `Backend/`      # actor Backend (spawns the helper, ids, replay), BackendClient
+                    # protocol + typed request structs, AppError, PayloadDecoder
+  - `Model/`        # Payload (Decodable mirrors), DashboardModel (@Observable), Preferences (`Pref` + enums)
+  - `Features/`     # Dashboard/{Header,Page}, Onboarding (FolderPrompt, folder chooser), Settings
+  - `Charts/`       # one Swift Charts view per chart, ChartSupport, HoverCard
+  - `DesignSystem/` # Palette, Metrics, Modifiers, Components, Appearance, Format — the one place to restyle
+  - `Support/Log.swift` # os.Logger channels (app, backend, protocol, model, helper)
+  - `Tests/AayuKitTests/` # Swift Testing (fake BackendClient, synthetic JSON fixture)
+  - `Info.plist`, `PrivacyInfo.xcprivacy`
 - `scripts/bundle.sh` — assembles + signs the .app; `scripts/make_icon.py`.
 
-### Protocol (backend/aayu_backend/server.py ↔ app/Sources/Aayu/Backend.swift)
+### Protocol (backend/aayu_backend/server.py ↔ app/Sources/AayuKit/Backend/Backend.swift)
 Request `{"id", "method", "params"}` → reply `{"id", "result"}` or
 `{"id", "error"}`; pushed `{"event": "reloaded"}` after auto-reload.
 Methods: `open(folder)`, `reload()`, `status(folder)`,
@@ -62,13 +68,13 @@ are naive local `YYYY-MM-DDTHH:MM:SS`, parsed in the Mac's timezone.
 - New data/KPI → compute in `data.py`/`series.py`, add to the `dashboard()`
   payload, mirror it in `Payload.swift`, render it in the views.
 - New chart → a series function in `series.py`, a `Decodable` in
-  `Payload.swift`, a Swift Charts view in `Charts.swift`, a `ChartPage` case
+  `Payload.swift`, a Swift Charts view in `Charts/`, a `ChartPage` case
   and its `ChartCard` in `ChartPager.card(_:)`.
-- Colours, type sizes, radii and spacing come only from `Theme.swift`
+- Colours, type sizes, radii and spacing come only from `DesignSystem/` (`Theme.`)
   (`.card()` for white cards, `.frosted(_:)` on the dark header). The icon
   has its own palette, sampled from the logo, in `scripts/make_icon.py`.
 - Settings → Appearance (System / Light / Dark, default Light). Page colours
-  take a light and a dark value (`rgb(light, dark)` in `Theme.swift`); the
+  take a light and a dark value (`rgb(light, dark)` in `Palette.swift`); the
   header is dark in both, so colours on it stay fixed. `Theme.apply` sets
   `NSApp.appearance`; don't add `.preferredColorScheme`, which overrides it
   per window. Use `Theme.card`/`Theme.ink`, not `.white`/`.black`, on the page.

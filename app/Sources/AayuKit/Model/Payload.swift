@@ -3,7 +3,7 @@ import Foundation
 // What the backend sends. Shapes mirror backend/aayu_backend/series.py
 // (`dashboard()`) and server.py (`status()`); keys arrive in snake_case.
 
-struct Dashboard: Decodable {
+struct Dashboard: Decodable, Sendable {
     let selection: String        // 'YYYY-MM' or 'last30'
     let options: [String]        // picker entries, newest → oldest
     let window: DateWindow
@@ -16,14 +16,14 @@ struct Dashboard: Decodable {
     let weight: [WeightPoint]?   // nil when the export has no body data
 }
 
-struct DateWindow: Decodable {
+struct DateWindow: Decodable, Sendable {
     let start: Date   // first day shown (midnight)
     let end: Date     // last day shown (midnight)
 }
 
 /// Header numbers for the window. Changes compare with the span before it
 /// (the previous month or 30 days); the score with the 14 nights before.
-struct KPIs: Decodable {
+struct KPIs: Decodable, Sendable {
     let sleepScore: Int?
     let sleepScoreChange: Int?
     let sleepScoreParts: ScoreParts?
@@ -38,7 +38,7 @@ struct KPIs: Decodable {
 }
 
 /// The sleep score's parts, each 0–1 (1 = on target).
-struct ScoreParts: Decodable {
+struct ScoreParts: Decodable, Sendable {
     let timing: Double
     let consistency: Double
     let stages: Double
@@ -47,7 +47,7 @@ struct ScoreParts: Decodable {
 
 /// One night's stages over time. `nights` lists every night in the window
 /// ('YYYY-MM-DD', oldest first) so the card can step between them.
-struct Hypnogram: Decodable {
+struct Hypnogram: Decodable, Sendable {
     let night: String
     let nights: [String]
     let start: Date   // bedtime, or the first stage minute if earlier
@@ -58,7 +58,7 @@ struct Hypnogram: Decodable {
     let duration: Int   // start to end, minutes
 }
 
-struct StageSpan: Decodable, Identifiable {
+struct StageSpan: Decodable, Sendable, Identifiable {
     let stage: String
     let start: Date
     let end: Date
@@ -66,27 +66,27 @@ struct StageSpan: Decodable, Identifiable {
 }
 
 /// A stage's share of sleep minutes (across the window, or one night).
-struct StageShare: Decodable, Identifiable {
+struct StageShare: Decodable, Sendable, Identifiable {
     let stage: String
     let minutes: Int
     let share: Double   // 0…1
     var id: String { stage }
 }
 
-struct Workouts: Decodable {
+struct Workouts: Decodable, Sendable {
     let start: Date   // axis start (two months back)
     let end: Date
     let weeks: [WorkoutWeek]
 }
 
-struct WorkoutWeek: Decodable, Identifiable {
+struct WorkoutWeek: Decodable, Sendable, Identifiable {
     let week: Date    // Monday the week starts
     let type: String  // "Strength" or "Running"
     let count: Int
     var id: String { "\(week.timeIntervalSince1970)-\(type)" }
 }
 
-struct CalorieDay: Decodable, Identifiable {
+struct CalorieDay: Decodable, Sendable, Identifiable {
     let date: Date
     let calories: Double
     let avg7: Double
@@ -94,7 +94,7 @@ struct CalorieDay: Decodable, Identifiable {
     var id: Date { date }
 }
 
-struct WeightPoint: Decodable, Identifiable {
+struct WeightPoint: Decodable, Sendable, Identifiable {
     let date: Date
     let value: Double
     let marker: Bool
@@ -102,7 +102,7 @@ struct WeightPoint: Decodable, Identifiable {
 }
 
 /// A folder's contents, for the Settings status line.
-struct FolderStatus: Decodable {
+struct FolderStatus: Decodable, Sendable {
     let exists: Bool
     let found: [String]     // e.g. ["Sleep", "Activity", …]
     let total: Int

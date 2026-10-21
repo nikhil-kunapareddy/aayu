@@ -12,7 +12,7 @@ BUILD  := $(CACHE)/build
 SWIFT  := swift build --package-path app --scratch-path $(BUILD)/swift
 ICON   := $(BUILD)/Aayu.icns
 
-.PHONY: run app install clean test-backend lint
+.PHONY: run app install clean test test-app test-backend lint
 
 # Debug SwiftUI build; the backend runs from (a copy of) its source with the
 # venv. Launched with `open` like a normal app; waits until you quit, with the
@@ -42,6 +42,16 @@ $(ICON): scripts/make_icon.py $(VENV)/.installed
 $(VENV)/.installed: backend/pyproject.toml backend/uv.lock
 	cd backend && UV_PROJECT_ENVIRONMENT=$(VENV) uv sync --locked --all-groups
 	touch $@
+
+# App tests (Swift Testing). The Command Line Tools keep Testing.framework
+# outside the default search paths, so point the compiler and linker at it.
+TESTING := /Library/Developer/CommandLineTools/Library/Developer
+test-app:
+	swift test --package-path app --scratch-path $(BUILD)/swift \
+	  -Xswiftc -F -Xswiftc $(TESTING)/Frameworks -Xlinker -F -Xlinker $(TESTING)/Frameworks \
+	  -Xlinker -rpath -Xlinker $(TESTING)/Frameworks -Xlinker -rpath -Xlinker $(TESTING)/usr/lib
+
+test: test-backend test-app
 
 # Backend tests (synthetic fixtures only) and static checks.
 test-backend: $(VENV)/.installed

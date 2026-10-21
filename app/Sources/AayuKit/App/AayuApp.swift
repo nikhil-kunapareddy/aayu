@@ -2,13 +2,13 @@ import SwiftUI
 
 /// Aayu — a SwiftUI front end over a Python backend. The backend (backend/)
 /// owns the Zepp data; this app asks it for numbers and draws them.
-@main
-struct AayuApp: App {
+/// Started by the `Aayu` executable (Sources/Aayu/main.swift).
+public struct AayuApp: App {
     @NSApplicationDelegateAdaptor(AppDelegate.self) private var delegate
     @State private var model = DashboardModel()
-    @AppStorage(Pref.appearance) private var appearance = "light"
+    @AppStorage(Pref.appearance) private var appearance = Appearance.light
 
-    init() {
+    public init() {
         UserDefaults.standard.register(defaults: Pref.defaults)
         // There's one window and it always opens at launch, so ignore saved
         // window state. A stale one (e.g. after a force quit) otherwise
@@ -16,7 +16,7 @@ struct AayuApp: App {
         UserDefaults.standard.register(defaults: ["ApplePersistenceIgnoreState": true])
     }
 
-    var body: some Scene {
+    public var body: some Scene {
         Window("Aayu", id: "main") {
             DashboardView()
                 .environment(model)
@@ -36,37 +36,16 @@ struct AayuApp: App {
 }
 
 final class AppDelegate: NSObject, NSApplicationDelegate {
+    func applicationDidFinishLaunching(_ notification: Notification) {
+        let version = Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "dev"
+        Log.app.notice("Aayu \(version, privacy: .public) launched")
+    }
+
     /// Quit when the dashboard window closes — Aayu is a single-window app.
     func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool { true }
 
     func applicationWillTerminate(_ notification: Notification) {
+        Log.app.notice("Aayu quitting")
         Backend.terminateHelper()
-    }
-}
-
-/// View menu: month and chart navigation, and reload.
-struct DashboardCommands: Commands {
-    let model: DashboardModel
-
-    var body: some Commands {
-        CommandGroup(before: .toolbar) {
-            Button("Previous Month") { model.step(older: true) }
-                .keyboardShortcut(.leftArrow, modifiers: .command)
-                .disabled(!model.canStep(older: true))
-            Button("Next Month") { model.step(older: false) }
-                .keyboardShortcut(.rightArrow, modifiers: .command)
-                .disabled(!model.canStep(older: false))
-            Divider()
-            Button("Previous Chart") { withAnimation(ChartPager.slide) { model.stepChart(forward: false) } }
-                .keyboardShortcut("[")
-                .disabled(model.dashboard == nil)
-            Button("Next Chart") { withAnimation(ChartPager.slide) { model.stepChart(forward: true) } }
-                .keyboardShortcut("]")
-                .disabled(model.dashboard == nil)
-            Divider()
-            Button("Reload Data") { Task { await model.reload() } }
-                .keyboardShortcut("r")
-            Divider()
-        }
     }
 }
