@@ -1,23 +1,18 @@
 import SwiftUI
 
 /// The pale page under the header: the KPI tiles (a row of four, or 2 × 2 in a
-/// narrow window) over the chart pager, which takes the height that's left.
-/// When that's less than `Theme.chartMinHeight` the page scrolls instead.
-/// Past `Theme.maxContentWidth` the content stays centred at that width.
+/// narrow window) over the chart pager, which takes the height that's left
+/// (at least `Theme.chartMinHeight`; a shorter window scrolls, see
+/// DashboardView). Past `Theme.maxContentWidth` the content stays centred.
 struct DashboardPage: View {
     let d: Dashboard
-    @State private var viewport: CGFloat = 0
 
     var body: some View {
-        ScrollView(.vertical) {
-            PageContent(d: d)
-                .padding(Theme.inset)
-                .frame(maxWidth: Theme.maxContentWidth)
-                .frame(maxWidth: .infinity, minHeight: viewport)
-        }
-        .scrollBounceBehavior(.basedOnSize)
-        .onGeometryChange(for: CGFloat.self) { $0.size.height } action: { viewport = $0 }
-        .measuringLayoutClass()
+        PageContent(d: d)
+            .padding(Theme.inset)
+            .frame(maxWidth: Theme.maxContentWidth)
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .measuringLayoutClass()
     }
 }
 

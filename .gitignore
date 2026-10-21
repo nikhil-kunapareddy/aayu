@@ -28,3 +28,6 @@ config/
 .vscode/
 .idea/
 *.swp
+
+# Agent worktrees (local scratch checkouts)
+.claude/worktrees/

@@ -9,6 +9,7 @@ struct DashboardView: View {
     @AppStorage(Pref.folder) private var folder = ""
     @AppStorage(Pref.units) private var units = Units.lbs
     @AppStorage(Pref.autoReload) private var autoReload = true
+    @State private var viewport: CGFloat = 0
 
     var body: some View {
         @Bindable var model = model
@@ -36,14 +37,22 @@ struct DashboardView: View {
         case .failed(let error):
             FolderPrompt(error: error) { Task { await model.reload() } }
         case .ready(let dashboard):
-            VStack(spacing: 0) {
-                Header(d: dashboard)
-                if let issue = model.issue {
-                    StatusBanner(error: issue)
-                        .transition(.move(edge: .top).combined(with: .opacity))
+            // One scroll view for header and page: the page fills the window and
+            // the chart takes what's left, and a window too short for that
+            // scrolls, header included, rather than squeezing the chart.
+            ScrollView(.vertical) {
+                VStack(spacing: 0) {
+                    Header(d: dashboard)
+                    if let issue = model.issue {
+                        StatusBanner(error: issue)
+                            .transition(.move(edge: .top).combined(with: .opacity))
+                    }
+                    DashboardPage(d: dashboard)
                 }
-                DashboardPage(d: dashboard)
+                .frame(minHeight: viewport)
             }
+            .scrollBounceBehavior(.basedOnSize)
+            .onGeometryChange(for: CGFloat.self) { $0.size.height } action: { viewport = $0 }
             .animation(.easeInOut(duration: 0.2), value: model.issue)
             .background(Theme.page)
         }

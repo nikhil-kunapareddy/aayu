@@ -70,9 +70,24 @@ are naive local `YYYY-MM-DDTHH:MM:SS`, parsed in the Mac's timezone.
 - New chart → a series function in `series.py`, a `Decodable` in
   `Payload.swift`, a Swift Charts view in `Charts/`, a `ChartPage` case
   and its `ChartCard` in `ChartPager.card(_:)`.
-- Colours, type sizes, radii and spacing come only from `DesignSystem/` (`Theme.`)
-  (`.card()` for white cards, `.frosted(_:)` on the dark header). The icon
-  has its own palette, sampled from the logo, in `scripts/make_icon.py`.
+- Colours, type sizes, radii and spacing come only from `DesignSystem/` (`Theme.`):
+  `Palette` (WCAG AA-checked by `ContrastTests`), `Typography` (`Theme.title3`,
+  `Theme.metric`, `Theme.micro`… — no literal `.font(.system(size:))`), `Metrics`,
+  `.card()` for white cards, `.frosted(_:)` on the dark header. Buttons use
+  `FrostedButtonStyle` (header) / `CardButtonStyle` / `DotButtonStyle` so every
+  control has hover, pressed, disabled and focus states. The icon has its own
+  palette, sampled from the logo, in `scripts/make_icon.py`.
+- Layout adapts to width via `measuringLayoutClass()` (regular ≥ 1100 pt,
+  compact ≥ 860, narrow below: tiles 2 × 2). Minimum window 720 × 600; the
+  header and page share one ScrollView, so a short window scrolls instead of
+  squeezing the chart below `Theme.chartMinHeight`.
+- Errors: backend error `code`s map to `AppError` (title, message, recovery);
+  raw text only behind "Details". A failure while a dashboard is up shows a
+  `StatusBanner` and keeps the dashboard; the full-screen prompt is only for
+  "no dashboard yet". Every user-facing string is localizable (no sentence
+  concatenation; plurals via `^[\(n) item](inflect: true)`).
+- Shortcuts (AppCommands): ⌘O folder, ⌘R reload, ⌘←/⌘→ month, ⌘T latest
+  month, ⌥⌘←/⌥⌘→ night, ⌘1–⌘4 / ⌘[ ⌘] charts, ⌘? help. Respect Reduce Motion.
 - Settings → Appearance (System / Light / Dark, default Light). Page colours
   take a light and a dark value (`rgb(light, dark)` in `Palette.swift`); the
   header is dark in both, so colours on it stay fixed. `Theme.apply` sets
@@ -110,6 +125,9 @@ are naive local `YYYY-MM-DDTHH:MM:SS`, parsed in the Mac's timezone.
   commit screenshots of the dashboard with real data.
 
 ## Gotchas (recurring mistakes — update as new ones surface)
+- **Don't read pipes with `FileHandle.bytes`.** It parks a Swift-concurrency
+  thread per pipe and froze the test suite; `Backend/PipeLines.swift` reads
+  with `readabilityHandler` instead.
 - **The backend's stdout is the protocol.** Never `print()` there; log to
   stderr. Non-JSON-safe values (NaN, numpy scalars) must be converted.
 - **macOS privacy prompts block the helper.** Reading a folder in ~/Documents

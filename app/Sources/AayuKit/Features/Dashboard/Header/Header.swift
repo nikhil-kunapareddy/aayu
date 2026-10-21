@@ -6,6 +6,7 @@ import SwiftUI
 struct Header: View {
     let d: Dashboard
     @Environment(\.colorScheme) private var colorScheme   // the window's, outside the override below
+    @Environment(DashboardModel.self) private var model
 
     var body: some View {
         VStack(alignment: .leading, spacing: 20) {
@@ -22,6 +23,11 @@ struct Header: View {
                 .lineLimit(1)
                 .minimumScaleFactor(0.85)
                 Spacer(minLength: 16)
+                if model.isRefreshing {
+                    ProgressView()
+                        .controlSize(.small)
+                        .accessibilityLabel("Loading")
+                }
                 MonthControl(d: d)
                 SettingsLink {
                     Image(systemName: "gearshape")

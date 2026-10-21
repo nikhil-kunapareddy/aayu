@@ -31,6 +31,7 @@ enum Theme {
     static let down   = rgb(0xC2410C, 0xFB923C)   // a change for the worse
     static let upOnDark = rgb(0x6EE7B7)           // the same, on the header
     static let downOnDark = rgb(0xFDBA74)
+    static let warning = rgb(0xB45309, 0xFBBF24)   // a problem that needs attention (status banner)
     static let dot    = rgb(0x848C9C, 0x5A6488)   // an inactive pager dot
     static let hoverRule = sub.opacity(0.5)       // the line under the pointer on a chart
 

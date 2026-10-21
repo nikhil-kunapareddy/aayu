@@ -9,16 +9,13 @@ struct StatusBanner: View {
     @Environment(DashboardModel.self) private var model
     @State private var showsDetails = false
 
-    /// The warning symbol's colour: the palette's "worse" orange (DesignSystem
-    /// has no dedicated warning token).
-    private static let warning = Theme.down
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
             HStack(alignment: .center, spacing: 12) {
                 Image(systemName: "exclamationmark.triangle.fill")
                     .font(.system(size: 18))
-                    .foregroundStyle(Self.warning)
+                    .foregroundStyle(Theme.warning)
                     .accessibilityHidden(true)
                 VStack(alignment: .leading, spacing: 2) {
                     Text(error.title)
