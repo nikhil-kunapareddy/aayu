@@ -1,68 +1,71 @@
+<img src="assets/icon.png" width="128" alt="Aayu app icon">
+
 # Aayu — Personal Health Dashboard
 
-A health dashboard for wearable data exported from the **Zepp** app (Amazfit
-devices), built as two apps: a **FastAPI backend** that loads + serves the data
-and a **Streamlit frontend** that charts it with Plotly.
+A native Mac app (Apple Silicon) for wearable data exported from the **Zepp**
+app (Amazfit devices). Point it at your Zepp export folder and it charts your
+sleep, workouts, calories and weight.
 
 ![Aayu dashboard](assets/image.png)
 
-At a glance: a KPI banner (sleep score, steps, sleep, resting HR, weight), a
-month filter, and four charts — **Sleep Breakdown**, **Workout Sessions**,
-**Calories Burned**, and **Weight Trend**.
+One window: a greeting and month control (‹ ›, ⌘← ⌘→, plus **Last 30 days**),
+your **sleep score** with the month's sleep-stage mix, tiles for steps, sleep,
+resting heart rate and weight (each compared with the month before), and four
+charts — a night-by-night **Sleep Breakdown** (hypnogram), **Workout
+Sessions**, **Calories Burned** and **Weight Trend** — with hover details.
 
-## Setup
+## Install
+
+Needs [uv](https://docs.astral.sh/uv/) and the Xcode Command Line Tools
+(`xcode-select --install`); full Xcode isn't required.
 
 ```bash
 git clone <repo-url> && cd aayu
-python3 -m venv .venv && source .venv/bin/activate
-pip install -r backend/requirements.txt -r frontend/requirements.txt
+make install        # builds Aayu.app and copies it to /Applications
 ```
 
-Export your data from the Zepp app and drop the folders into `data/` — one
-`.csv` per folder:
+Or `make app` to build `dist/Aayu.app` without installing, and `make run` to
+run a debug build from source.
+
+## Use
+
+1. Export your data from the Zepp app and unzip it.
+2. Open Aayu, click **Choose Zepp Folder…** and pick the unzipped folder (the
+   one containing `SLEEP/`, `ACTIVITY/`, `BODY/`, …).
+3. If the folder is in Documents, Desktop or Downloads, macOS asks once whether
+   Aayu may access it — click **Allow**.
+
+Settings (⌘,):
+
+| Setting | What it does |
+| --- | --- |
+| Zepp data folder | Where your export lives. Shows which data types were found. |
+| Reload when a new export appears | Picks up a new export automatically. ⌘R reloads by hand. |
+| Weight units | lbs or kg, for the KPI and the weight chart. |
+| Open on | Start on the latest month or the last 30 days. |
+
+## How it's built
+
+A SwiftUI app with Swift Charts in front of a Python (pandas) backend. The app
+starts the backend as a hidden helper and they exchange JSON over a private
+pipe — no network port, nothing else on your Mac can read the data.
 
 ```
-data/
-├── ACTIVITY/        ├── SLEEP/
-├── BODY/            ├── SLEEP_MINUTE/
-├── HEARTRATE_AUTO/  ├── SPORT/
-└── USER/
-```
-
-## Run
-
-Two processes, two terminals. **Start the backend first** — the frontend fetches
-its data from it.
-
-```bash
-# terminal 1 — backend API (http://localhost:8000, docs at /docs)
-cd backend && uvicorn app.main:app --reload
-
-# terminal 2 — frontend dashboard (http://localhost:8501)
-cd frontend && streamlit run streamlit_app.py
-```
-
-(Use `streamlit run`, not `python` — a plain `python streamlit_app.py` won't
-serve the app.) Point the frontend at a non-default backend with the
-`AAYU_API_URL` env var.
-
-## Project Structure
-
-```
-backend/                # FastAPI — owns the data
-  app/data.py           #   CSV loading, processing, KPI values
-  app/main.py           #   API endpoints (/kpis, /datasets/{name})
-  app/schemas.py        #   Pydantic response models
-frontend/               # Streamlit — owns the presentation
-  streamlit_app.py      #   entry point — the view
-  core/data.py          #   HTTP client → rebuilds DataFrames from the API
-  core/charts.py        #   Plotly figure builders (one per chart)
-  core/theme.py         #   colours + Plotly layout defaults
-  ui/                   #   styles.py (CSS), components.py
-  .streamlit/           #   base theme config
-data/                   # Zepp CSV exports (gitignored — read by the backend)
+app/                    # SwiftUI front end (Swift package)
+  Sources/Aayu/         #   views, charts, settings, Backend (the pipe)
+  Info.plist
+backend/aayu_backend/   # Python backend
+  data.py               #   CSV loading, cleaning, KPI values
+  series.py             #   the numbers behind each chart
+  server.py             #   JSON-lines protocol + folder watcher
+scripts/
+  bundle.sh             #   assembles + signs Aayu.app
+  make_icon.py          #   draws the app icon
+Makefile                # run / app / install / clean
 ```
 
 ## Data Privacy
 
-`data/` is gitignored and never committed — your health data stays local.
+Everything stays on your Mac: the app reads only the folder you choose and
+makes no network requests. `data/` is gitignored, so health data you keep in
+the repo is never committed.
