@@ -2,6 +2,17 @@
 
 # Aayu — Personal Health Dashboard
 
+[![CI](https://github.com/nikhil-kunapareddy/aayu/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/nikhil-kunapareddy/aayu/actions/workflows/ci.yml)
+[![Release](https://github.com/nikhil-kunapareddy/aayu/actions/workflows/release.yml/badge.svg)](https://github.com/nikhil-kunapareddy/aayu/actions/workflows/release.yml)
+[![Latest release](https://img.shields.io/github/v/release/nikhil-kunapareddy/aayu?sort=semver&label=version)](https://github.com/nikhil-kunapareddy/aayu/releases/latest)
+[![Last commit](https://img.shields.io/github/last-commit/nikhil-kunapareddy/aayu/main)](https://github.com/nikhil-kunapareddy/aayu/commits/main)
+[![Open issues](https://img.shields.io/github/issues/nikhil-kunapareddy/aayu)](https://github.com/nikhil-kunapareddy/aayu/issues)
+<br>
+![macOS 15+ · Apple Silicon](https://img.shields.io/badge/macOS-15%2B%20%C2%B7%20Apple%20Silicon-000000?logo=apple&logoColor=white)
+![Swift 6](https://img.shields.io/badge/Swift-6-F05138?logo=swift&logoColor=white)
+![Python 3.12](https://img.shields.io/badge/Python-3.12-3776AB?logo=python&logoColor=white)
+![Privacy: local only](https://img.shields.io/badge/privacy-local%20only-2ea44f)
+
 A native Mac app (Apple Silicon) for wearable data exported from the **Zepp**
 app (Amazfit devices). Point it at your Zepp export folder and it charts your
 sleep, workouts, calories and weight.
@@ -15,7 +26,20 @@ details. Step through the charts with ‹ › on the card, the dots below it,
 ⌘1–⌘4 or ⌘[ ⌘]. Light, Dark or System appearance; the layout adapts down to a
 720 × 600 window; VoiceOver labels throughout.
 
-## Install
+## Download
+
+**[⬇ Download Aayu for Mac](https://github.com/nikhil-kunapareddy/aayu/releases/latest/download/Aayu.zip)**
+(Apple Silicon, macOS 15 or later) · [all releases](https://github.com/nikhil-kunapareddy/aayu/releases)
+
+1. Unzip it and drag **Aayu** into **Applications**.
+2. The app isn't notarized by Apple, so macOS blocks the first launch. Open
+   **System Settings › Privacy & Security**, find "Aayu was blocked…" and
+   click **Open Anyway**. You only need to do this once per version. Or in
+   Terminal: `xattr -dr com.apple.quarantine /Applications/Aayu.app`.
+
+Each release lists SHA-256 checksums in `SHA256SUMS.txt`.
+
+## Build from source
 
 Needs [uv](https://docs.astral.sh/uv/) and the Xcode Command Line Tools
 (`xcode-select --install`); full Xcode isn't required.
@@ -80,6 +104,13 @@ make run     # debug build, backend from source; logs in ~/Library/Caches/aayu/b
 make test    # backend pytest + app Swift Testing
 make lint    # ruff + mypy --strict
 ```
+
+CI (GitHub Actions) runs the backend checks on Linux and builds and tests
+the app on macOS for every pull request; `main` only accepts pull requests
+that pass both. To publish a release, bump `CFBundleShortVersionString` in
+`app/Info.plist`, then push a matching tag (`git tag v2.0.1 && git push
+origin v2.0.1`); the Release workflow builds, signs (ad hoc), zips and
+uploads `Aayu.app`.
 
 Quit Aayu before `make run` — `open` only brings an already-running copy
 forward. Rebuilt apps are ad-hoc signed, so macOS may ask for folder access

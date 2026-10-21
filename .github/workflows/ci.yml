@@ -1,0 +1,56 @@
+# Checks every pull request and every push to main. Both jobs are required
+# status checks on main (branch protection), so keep their names stable.
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  backend:
+    name: Backend (pytest, ruff, mypy)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: astral-sh/setup-uv@18d369b23da25a81e9458561248e1aafff6a70fa # v10.3.1
+        with:
+          version: "0.11.2"
+          enable-cache: true
+          cache-dependency-glob: backend/uv.lock
+      # Runtime + dev groups only: the build group (PyInstaller, pyobjc) is macOS-only.
+      - name: Install (locked)
+        run: uv sync --locked --group dev
+      - name: Lint
+        run: uv run --no-sync ruff check .
+      - name: Type-check
+        run: uv run --no-sync mypy
+      - name: Test
+        run: uv run --no-sync pytest -q
+
+  app:
+    name: App (build, test)
+    runs-on: macos-26
+    timeout-minutes: 30
+    env:
+      DEVELOPER_DIR: /Applications/Xcode_26.6.app/Contents/Developer
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Toolchain
+        run: swift --version
+      - name: Build (release, warnings are errors)
+        run: swift build --package-path app -c release -Xswiftc -warnings-as-errors
+      - name: Test
+        run: swift test --package-path app

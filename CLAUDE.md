@@ -27,6 +27,12 @@ screen shows the app icon itself (`AayuLogo`).
 - Everything generated lives in `~/Library/Caches/aayu` (venv, Swift and
   PyInstaller builds, the bundles); only the signed app is copied to `dist/`.
 - `make test` — backend pytest + app Swift Testing; `make lint` — ruff + mypy --strict.
+- CI: `.github/workflows/ci.yml`. Backend on ubuntu (uv sync --group dev, then ruff, mypy, pytest);
+  app on macos-26 with Xcode 26.6 (release build with `-warnings-as-errors`, swift test). Both job
+  names are required checks on `main`, so renaming a job means updating branch protection.
+- Releases: bump `CFBundleShortVersionString` in `app/Info.plist`, then push tag `v<version>`.
+  `release.yml` checks the tag matches, runs `make test` and `make app`, and uploads `Aayu.zip`
+  (the README's download link is `releases/latest/download/Aayu.zip`).
 - Logs from `make run`: `~/Library/Caches/aayu/build/Aayu-dev.log` (helper stderr is
   echoed there); the app logs to unified logging: `/usr/bin/log stream --level debug
   --predicate 'subsystem == "io.github.nikhil-kunapareddy.aayu"'` (zsh's `log` is a builtin).
