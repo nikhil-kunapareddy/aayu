@@ -38,7 +38,7 @@ JSON lines on its stdin/stdout. No network port.
   - `series.py`  # the numbers behind each chart + `dashboard()` payload
   - `server.py`  # the JSON-lines protocol (`Server.METHODS`), folder watcher
   - `__main__.py`
-  - `backend.spec` (PyInstaller), `requirements.txt`
+  - `backend.spec` (PyInstaller), `pyproject.toml` + `uv.lock` (pinned deps), `tests/` (pytest, synthetic data)
 - `app/` — SwiftUI (SwiftPM package, Swift 5 language mode, macOS 15+).
   - `Backend.swift`        # actor: spawns the helper, request ids, replay on relaunch
   - `Payload.swift`        # Decodable mirrors of the backend's JSON

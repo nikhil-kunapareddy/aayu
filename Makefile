@@ -12,7 +12,7 @@ BUILD  := $(CACHE)/build
 SWIFT  := swift build --package-path app --scratch-path $(BUILD)/swift
 ICON   := $(BUILD)/Aayu.icns
 
-.PHONY: run app install clean
+.PHONY: run app install clean test-backend lint
 
 # Debug SwiftUI build; the backend runs from (a copy of) its source with the
 # venv. Launched with `open` like a normal app; waits until you quit, with the
@@ -38,10 +38,17 @@ install: app
 $(ICON): scripts/make_icon.py $(VENV)/.installed
 	$(PYTHON) scripts/make_icon.py $@
 
-$(VENV)/.installed: backend/requirements.txt
-	uv venv --allow-existing --python 3.12 $(VENV)
-	VIRTUAL_ENV=$(VENV) uv pip install -r backend/requirements.txt
+# The venv is synced exactly to backend/uv.lock (runtime, build and dev groups).
+$(VENV)/.installed: backend/pyproject.toml backend/uv.lock
+	cd backend && UV_PROJECT_ENVIRONMENT=$(VENV) uv sync --locked --all-groups
 	touch $@
+
+# Backend tests (synthetic fixtures only) and static checks.
+test-backend: $(VENV)/.installed
+	cd backend && $(PYTHON) -m pytest -q
+
+lint: $(VENV)/.installed
+	cd backend && $(PYTHON) -m ruff check . && $(PYTHON) -m mypy
 
 clean:
 	rm -rf build dist $(BUILD)
