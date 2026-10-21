@@ -1,0 +1,76 @@
+[project]
+name = "aayu-backend"
+version = "0.1.0"
+description = "Aayu's data helper: loads a Zepp export and serves the dashboard's numbers as JSON lines over stdio."
+requires-python = "==3.12.*"
+dependencies = [
+    "numpy==2.5.4",
+    "pandas==3.0.6",
+]
+
+[dependency-groups]
+# `make app`: freeze the helper; scripts/make_icon.py draws the icon with AppKit.
+build = [
+    "pyinstaller==6.22.3",
+    "pyobjc-framework-cocoa==12.2.2",
+]
+dev = [
+    "mypy==2.4.0",
+    "pandas-stubs==3.0.5.260914",
+    "pytest==9.1.1",
+    "pytest-timeout==2.4.0",
+    "ruff==0.17.1",
+]
+
+[tool.uv]
+# An app's helper, not a library: `uv sync` installs the dependencies only;
+# scripts/bundle.sh and backend.spec pick the package up from this folder.
+package = false
+
+# ── Lint ──────────────────────────────────────────────────────────────────────
+[tool.ruff]
+target-version = "py312"
+line-length = 120
+extend-exclude = ["*.spec"]
+cache-dir = "~/Library/Caches/aayu/ruff"   # keep caches out of the iCloud-synced repo
+
+[tool.ruff.lint]
+select = ["E", "W", "F", "I", "B", "UP", "SIM", "RUF", "T20", "BLE", "DTZ", "ANN", "D", "PLR2004"]
+
+# Docstrings here open with a noun phrase ("The newest CSV …"), not a verb.
+ignore = ["D401"]
+allowed-confusables = ["–"]
+
+[tool.ruff.lint.pydocstyle]
+convention = "pep257"
+
+[tool.ruff.lint.isort]
+known-first-party = ["aayu_backend", "tests"]
+
+[tool.ruff.lint.per-file-ignores]
+# Tests: no annotation/docstring rules, and asserts compare against literals.
+"tests/**" = ["ANN", "D", "PLR2004"]
+
+# ── Types ─────────────────────────────────────────────────────────────────────
+[tool.mypy]
+python_version = "3.12"
+strict = true
+files = ["aayu_backend", "tests"]
+warn_unreachable = true
+cache_dir = "~/Library/Caches/aayu/mypy"
+
+[[tool.mypy.overrides]]
+module = "tests.*"
+# Tests are plain pytest functions: bodies of unannotated tests aren't checked.
+disallow_untyped_defs = false
+disallow_incomplete_defs = false
+disallow_untyped_calls = false
+check_untyped_defs = false
+
+# ── Tests ─────────────────────────────────────────────────────────────────────
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["."]
+addopts = ["-ra", "--strict-markers", "--strict-config", "-p", "no:cacheprovider"]   # no .pytest_cache in iCloud
+timeout = 30
+filterwarnings = ["error"]

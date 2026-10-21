@@ -10,9 +10,16 @@ dist/
 build/
 .eggs/
 
+# Swift
+.build/
+.swiftpm/
+
 # Environment
 .env
 .env.*
+
+# Local runtime config / secrets (unrelated tooling)
+config/
 
 # macOS
 .DS_Store
@@ -21,3 +28,6 @@ build/
 .vscode/
 .idea/
 *.swp
+
+# Agent worktrees (local scratch checkouts)
+.claude/worktrees/

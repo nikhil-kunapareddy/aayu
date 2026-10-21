@@ -1,0 +1,65 @@
+{
+  "selection": "2026-05",
+  "options": ["last30", "2026-05", "2026-04", "2026-03"],
+  "window": {"start": "2026-05-01T00:00:00", "end": "2026-05-31T00:00:00"},
+  "units": "lbs",
+  "kpis": {
+    "sleep_score": 78,
+    "sleep_score_change": -3,
+    "sleep_score_parts": {"timing": 0.85, "consistency": 0.6, "stages": 0.9, "duration": 0.75},
+    "avg_steps": 8000,
+    "avg_steps_change_pct": 12.5,
+    "avg_sleep_h": 7.2,
+    "avg_sleep_h_change": 0.3,
+    "avg_resting_hr": 60,
+    "avg_resting_hr_change": -2,
+    "weight": 150.0,
+    "weight_change": -1.5
+  },
+  "stages": [
+    {"stage": "Deep", "minutes": 2000, "share": 0.2},
+    {"stage": "REM", "minutes": 2200, "share": 0.22},
+    {"stage": "Light", "minutes": 5300, "share": 0.53},
+    {"stage": "Awake", "minutes": 500, "share": 0.05}
+  ],
+  "hypnogram": {
+    "night": "2026-05-31",
+    "nights": ["2026-05-29", "2026-05-30", "2026-05-31"],
+    "start": "2026-05-30T23:00:00",
+    "end": "2026-05-31T07:00:00",
+    "segments": [
+      {"stage": "Light", "start": "2026-05-30T23:00:00", "end": "2026-05-31T01:00:00"},
+      {"stage": "Deep", "start": "2026-05-31T01:00:00", "end": "2026-05-31T02:30:00"},
+      {"stage": "REM", "start": "2026-05-31T02:30:00", "end": "2026-05-31T04:00:00"},
+      {"stage": "Light", "start": "2026-05-31T04:00:00", "end": "2026-05-31T06:30:00"},
+      {"stage": "Awake", "start": "2026-05-31T06:30:00", "end": "2026-05-31T07:00:00"}
+    ],
+    "totals": [
+      {"stage": "Deep", "minutes": 90, "share": 0.1875},
+      {"stage": "REM", "minutes": 90, "share": 0.1875},
+      {"stage": "Light", "minutes": 270, "share": 0.5625},
+      {"stage": "Awake", "minutes": 30, "share": 0.0625}
+    ],
+    "asleep": 450,
+    "duration": 480
+  },
+  "workouts": {
+    "start": "2026-04-01T00:00:00",
+    "end": "2026-05-31T00:00:00",
+    "weeks": [
+      {"week": "2026-05-18T00:00:00", "type": "Strength", "count": 2},
+      {"week": "2026-05-18T00:00:00", "type": "Running", "count": 1},
+      {"week": "2026-05-25T00:00:00", "type": "Strength", "count": 3},
+      {"week": "2026-05-25T00:00:00", "type": "Running", "count": 0}
+    ]
+  },
+  "calories": [
+    {"date": "2026-05-01T00:00:00", "calories": 400.0, "avg7": 380.0, "marker": true},
+    {"date": "2026-05-02T00:00:00", "calories": 350.0, "avg7": 375.0, "marker": false},
+    {"date": "2026-05-03T00:00:00", "calories": 420.0, "avg7": 390.0, "marker": true}
+  ],
+  "weight": [
+    {"date": "2026-05-02T00:00:00", "value": 151.5, "marker": true},
+    {"date": "2026-05-30T00:00:00", "value": 150.0, "marker": false}
+  ]
+}

@@ -1,69 +1,158 @@
 # CLAUDE.md
 
 ## Overview
-**Aayu** — a personal health dashboard. Loads wearable data exported from the
-**Zepp** app (Amazfit devices), processes it with pandas, and renders it as a
-single-page Streamlit dashboard with Plotly charts. Dark, iOS-inspired theme.
+**Aayu** — a personal health dashboard, packaged as a **Mac app for Apple
+Silicon**. Wearable data exported from the **Zepp** app (Amazfit devices) is
+loaded and crunched by a **Python backend** (pandas) and drawn by a **SwiftUI
+front end** with **Swift Charts**. The user picks the Zepp export folder in
+Settings. Look (from a dashboard mock-up the user supplied): a dark navy
+header — greeting, month control, a frosted Sleep Score panel (ring + stage
+mix) — over a pale page of white KPI tiles and one chart card at a time
+(‹ › on its edges, dots below, ⌘[ ⌘]); no title bar. The
+app icon is the user's Aayu logo (lavender crescent "boat" with a violet sail
+on an indigo tile), redrawn as clean vectors in `scripts/make_icon.py` from the
+artwork in `assets/image copy.png`; the welcome
+screen shows the app icon itself (`AayuLogo`).
 
-> Migrated from Dash → Streamlit. If you find any `dash`/`dcc`/`html`/`@callback`
-> references, they are stragglers and should be removed.
+> History: Dash → Streamlit → FastAPI + Streamlit → pywebview + Plotly → this.
+> Any `dash`, `streamlit`, `fastapi`, `plotly`, `pywebview` or `frontend/`
+> reference is a straggler and should be removed.
 
 ## Running
-- Install: `pip install -r requirements.txt`
-- Run: `streamlit run streamlit_app.py` (NOT `python streamlit_app.py` — that
-  only prints a warning and never serves).
-- Expects Zepp CSV exports under `data/` (gitignored — see Data Conventions).
+- `make run` — debug build, backend from source; opens the app and waits.
+- `make app` — `dist/Aayu.app` (arm64, ad-hoc signed, frozen backend inside).
+  `make install` copies it to `/Applications`.
+- Needs `uv` and the Xcode Command Line Tools (Swift 6, macOS SDK). Full
+  Xcode is NOT needed: SwiftPM builds the binary, `scripts/bundle.sh` wraps it.
+- Everything generated lives in `~/Library/Caches/aayu` (venv, Swift and
+  PyInstaller builds, the bundles); only the signed app is copied to `dist/`.
+- `make test` — backend pytest + app Swift Testing; `make lint` — ruff + mypy --strict.
+- Logs from `make run`: `~/Library/Caches/aayu/build/Aayu-dev.log` (helper stderr is
+  echoed there); the app logs to unified logging: `/usr/bin/log stream --level debug
+  --predicate 'subsystem == "io.github.nikhil-kunapareddy.aayu"'` (zsh's `log` is a builtin).
 
 ## Architecture — keep this separation
-The codebase is split into framework-agnostic logic vs. the Streamlit view.
-**Preserve this boundary** when adding features.
+**The backend owns data, the app owns presentation.** They talk only over a
+private pipe: the app starts the backend as a helper process and they exchange
+JSON lines on its stdin/stdout. No network port.
 
-- `streamlit_app.py`   # entrypoint; thin view: filter → load → chart → display
-- `core/`              # framework-agnostic, NO streamlit imports allowed here
-  - `data.py`          # CSV loading + cleaning; exposes module-level DataFrames
-                       #   (`sleep`, `activity`, `body`, `sport`, `daily_hr`…)
-                       #   and precomputed KPIs (`avg_steps`, `latest_weight`…)
-  - `charts.py`        # one function per chart; each RETURNS a `go.Figure`,
-                       #   never renders. Imports `from core import data as d`.
-  - `theme.py`         # design tokens: `C` (color dict), `AXIS`, `plot_base()`,
-                       #   `fade()`. All Plotly styling flows from here.
-- `ui/`                # Streamlit-only view primitives
-  - `styles.py`        # `inject()` — one big `<style>` block (custom dark theme)
-  - `components.py`    # `banner()`, `chart_card()`, `footer()`
-- `.streamlit/config.toml`  # base dark theme (background, font, primaryColor)
+- `backend/aayu_backend/` — Python. NO UI code.
+  - `data.py`    # CSV loading + cleaning → immutable `Data` (frames + KPIs)
+  - `series.py`  # the numbers behind each chart + `dashboard()` payload
+  - `server.py`  # the JSON-lines protocol (`Server.METHODS`), folder watcher
+  - `__main__.py`
+  - `backend.spec` (PyInstaller), `pyproject.toml` + `uv.lock` (pinned deps), `tests/` (pytest, synthetic data)
+- `app/` — SwiftUI (SwiftPM, Swift 6 language mode, macOS 15+). Library
+  `AayuKit` holds everything; executable `Aayu` is just `main.swift`.
+  - `App/`          # AayuApp (scenes), AppCommands (menus)
+  - `Backend/`      # actor Backend (spawns the helper, ids, replay), BackendClient
+                    # protocol + typed request structs, AppError, PayloadDecoder
+  - `Model/`        # Payload (Decodable mirrors), DashboardModel (@Observable), Preferences (`Pref` + enums)
+  - `Features/`     # Dashboard/{Header,Page}, Onboarding (FolderPrompt, folder chooser), Settings
+  - `Charts/`       # one Swift Charts view per chart, ChartSupport, HoverCard
+  - `DesignSystem/` # Palette, Metrics, Modifiers, Components, Appearance, Format — the one place to restyle
+  - `Support/Log.swift` # os.Logger channels (app, backend, protocol, model, helper)
+  - `Tests/AayuKitTests/` # Swift Testing (fake BackendClient, synthetic JSON fixture)
+  - `Info.plist`, `PrivacyInfo.xcprivacy`
+- `scripts/bundle.sh` — assembles + signs the .app; `scripts/make_icon.py`.
+
+### Protocol (backend/aayu_backend/server.py ↔ app/Sources/AayuKit/Backend/Backend.swift)
+Request `{"id", "method", "params"}` → reply `{"id", "result"}` or
+`{"id", "error"}`; pushed `{"event": "reloaded"}` after auto-reload.
+Methods: `open(folder)`, `reload()`, `status(folder)`,
+`dashboard(selection, units, default_range, night)`, `watch(enabled)`.
+Keys are snake_case (Swift decodes with `.convertFromSnakeCase`); timestamps
+are naive local `YYYY-MM-DDTHH:MM:SS`, parsed in the Mac's timezone.
 
 ## Conventions
-- New chart → add a `go.Figure`-returning function in `core/charts.py`, style it
-  via `plot_base()` + `C`/`AXIS` from `core/theme.py`, then render it in
-  `streamlit_app.py` with `ui.chart_card(title, fig)`.
-- Never put `import streamlit` in `core/`. Never put data/figure logic in `ui/`
-  or `streamlit_app.py`.
-- The data loader is wrapped in `@st.cache_data` — keep expensive work cached so
-  it isn't re-run on every widget interaction.
-- Colors come from the `C` dict in `theme.py`; do not hardcode hex values.
+- New data/KPI → compute in `data.py`/`series.py`, add to the `dashboard()`
+  payload, mirror it in `Payload.swift`, render it in the views.
+- New chart → a series function in `series.py`, a `Decodable` in
+  `Payload.swift`, a Swift Charts view in `Charts/`, a `ChartPage` case
+  and its `ChartCard` in `ChartPager.card(_:)`.
+- Colours, type sizes, radii and spacing come only from `DesignSystem/` (`Theme.`):
+  `Palette` (WCAG AA-checked by `ContrastTests`), `Typography` (`Theme.title3`,
+  `Theme.metric`, `Theme.micro`… — no literal `.font(.system(size:))`), `Metrics`,
+  `.card()` for white cards, `.frosted(_:)` on the dark header. Buttons use
+  `FrostedButtonStyle` (header) / `CardButtonStyle` / `DotButtonStyle` so every
+  control has hover, pressed, disabled and focus states. The icon has its own
+  palette, sampled from the logo, in `scripts/make_icon.py`.
+- Layout adapts to width via `measuringLayoutClass()` (regular ≥ 1100 pt,
+  compact ≥ 860, narrow below: tiles 2 × 2). Minimum window 720 × 600; the
+  header and page share one ScrollView, so a short window scrolls instead of
+  squeezing the chart below `Theme.chartMinHeight`.
+- Errors: backend error `code`s map to `AppError` (title, message, recovery);
+  raw text only behind "Details". A failure while a dashboard is up shows a
+  `StatusBanner` and keeps the dashboard; the full-screen prompt is only for
+  "no dashboard yet". Every user-facing string is localizable (no sentence
+  concatenation; plurals via `^[\(n) item](inflect: true)`).
+- Shortcuts (AppCommands): ⌘O folder, ⌘R reload, ⌘←/⌘→ month, ⌘T latest
+  month, ⌥⌘←/⌥⌘→ night, ⌘1–⌘4 / ⌘[ ⌘] charts, ⌘? help. Respect Reduce Motion.
+- Settings → Appearance (System / Light / Dark, default Light). Page colours
+  take a light and a dark value (`rgb(light, dark)` in `Palette.swift`); the
+  header is dark in both, so colours on it stay fixed. `Theme.apply` sets
+  `NSApp.appearance`; don't add `.preferredColorScheme`, which overrides it
+  per window. Use `Theme.card`/`Theme.ink`, not `.white`/`.black`, on the page.
+- The window has no title bar (`.hiddenTitleBar`); the header drags the window
+  (`HeaderBackground` uses `WindowDragGesture`). Keep header content below
+  the traffic lights (top padding).
+- KPI tiles are for the selected window, with the change vs the window before
+  (previous month / previous 30 days); weight's change is across the window.
+  The sleep score covers the 14 nights up to the window's last night.
+- Don't show claims the data can't back (e.g. "top 10% for your age"); the
+  score message comes from the score's own parts (`ScoreText`).
+- Settings are `@AppStorage` keys listed in `Pref`; they apply immediately (no
+  Save button). The model reads them from `UserDefaults` when it calls the backend.
+- `series.py` was ported from the old Plotly chart code and verified to give
+  identical numbers; keep that maths unchanged unless a change is intended.
 
 ## Data Conventions
-- `data/` holds one subfolder per Zepp metric (`SLEEP/`, `ACTIVITY/`, `BODY/`,
-  `SPORT/`, `HEARTRATE_AUTO/`, `SLEEP_MINUTE/`, `USER/`), each containing a
-  single `.csv`. `core/data.py` reads the first `.csv` it finds in each folder.
+- The export folder holds one subfolder per Zepp metric (`SLEEP/`,
+  `ACTIVITY/`, `BODY/`, `SPORT/`, `HEARTRATE_AUTO/`, …), each with a `.csv`.
+  `data.csv_path()` reads the **newest** CSV per folder (by mtime).
 - CSVs are read with `encoding="utf-8-sig"` (Zepp exports carry a BOM).
-- `data/` is gitignored — it is real personal health data. Never commit it,
-  never paste its contents into code, commits, or PRs.
+- A missing metric yields an empty frame; KPIs become `None`, shown as "—".
+- `SLEEP_MINUTE` (one row per minute: date, time, DEEP/LIGHT/REM/WAKE) is in
+  the watch's local time, while `SLEEP` start/stop are UTC — `series._local`
+  converts the latter (via `TZ`) to match before slicing a night.
+- A Sleep Breakdown night spans bedtime → wake time **and** every run of stage
+  minutes overlapping it, followed through gaps ≤ `series.NIGHT_GAP` (30 min).
+  The watch often scores stages past SLEEP's recorded times; clipping to those
+  times cut the chart off on most nights.
+- Sleep times are shown in `series.TZ` (`America/New_York`, hardcoded).
+- The repo's `data/` is gitignored — it is real personal health data. Never
+  commit it, never paste its contents into code, commits, or PRs, and never
+  commit screenshots of the dashboard with real data.
 
 ## Gotchas (recurring mistakes — update as new ones surface)
-These are Streamlit-specific traps already hit on this project:
-
-- **Indented HTML in `st.markdown` becomes a code block.** Streamlit runs its
-  Markdown parser over HTML even with `unsafe_allow_html=True`. Any line indented
-  4+ spaces renders as a `<pre>` code block, shattering the layout. Emit custom
-  HTML as a single un-indented string (see `ui/components.py::banner`).
-- **Streamlit columns are themselves border-wrappers.** A broad
-  `[data-testid="stVerticalBlockBorderWrapper"]` CSS selector paints a card on
-  BOTH the column and the inner container → nested double boxes. Scope card CSS
-  to the `st-key-*` class from `st.container(border=True, key=...)` instead.
-- **`st.plotly_chart` must pass `theme=None`** to keep the figure's own
-  `core.theme` styling; the default `theme="streamlit"` overrides our colors.
-- **No backslashes inside f-string expressions** (Python 3.11). Build nested
-  HTML fragments in a helper/variable, not inline in the f-string.
-- **`@st.cache_data` ignores leading-underscore args** when hashing — don't rely
-  on them for cache keys.
+- **Don't read pipes with `FileHandle.bytes`.** It parks a Swift-concurrency
+  thread per pipe and froze the test suite; `Backend/PipeLines.swift` reads
+  with `readabilityHandler` instead.
+- **The backend's stdout is the protocol.** Never `print()` there; log to
+  stderr. Non-JSON-safe values (NaN, numpy scalars) must be converted.
+- **macOS privacy prompts block the helper.** Reading a folder in ~/Documents
+  (or Desktop/Downloads) triggers "Aayu would like to access…"; the helper's
+  `open()` blocks until the user answers. Ad-hoc signatures change on every
+  build, so rebuilt apps may ask again. This is also why dev builds copy the
+  backend source into the bundle instead of importing it from the repo.
+- **Quit Aayu before `make run`.** `open` on an app that's already running only
+  brings the old copy forward, so the new build never starts. `dist/Aayu.app`
+  (what Finder/Spotlight open) only changes with `make app`.
+- **Launch the app with `open`, not by exec'ing the binary** — a bare exec
+  from a background shell may never activate or show a window.
+- **Stale saved window state hid the window.** After a force quit, AppKit
+  "restored" nothing and SwiftUI skipped opening the dashboard; `AayuApp.init`
+  registers `ApplePersistenceIgnoreState` to prevent it.
+- **The repo lives in iCloud-synced `~/Documents`.** iCloud offloads files to
+  "dataless" placeholders (git can hang reading them — `find . -flags
+  +dataless`) and tags new files so `codesign` fails ("detritus not
+  allowed"). Build and sign outside the repo, then copy.
+- **Launched from a background shell, the window may stay off screen** (macOS
+  cooperative activation, Stage Manager). It exists; `osascript -e 'tell
+  application id "io.github.nikhil-kunapareddy.aayu" to activate'` brings it up.
+- **Checking visuals without screen recording:** host the views in an NSWindow
+  and `cacheDisplay` it, or `ImageRenderer` for pure-SwiftUI pieces.
+  `cacheDisplay` shows faint edge lines on translucent capsules that the real
+  window doesn't have.
+- **Swift Charts draws marks outside the x domain** (over the axis labels);
+  filter or widen the domain (see `WorkoutsChart.visible(_:)`).

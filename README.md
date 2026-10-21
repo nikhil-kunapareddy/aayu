@@ -1,54 +1,94 @@
+<img src="assets/icon.png" width="128" alt="Aayu app icon">
+
 # Aayu — Personal Health Dashboard
 
-A Streamlit dashboard for wearable health data exported from the
-**Zepp** app (Amazfit devices). Charts are built with Plotly.
+A native Mac app (Apple Silicon) for wearable data exported from the **Zepp**
+app (Amazfit devices). Point it at your Zepp export folder and it charts your
+sleep, workouts, calories and weight.
 
-![Aayu dashboard](assets/image.png)
+One window: a greeting and month menu (‹ ›, ⌘← ⌘→, plus **Last 30 days**),
+your **sleep score** with the month's sleep-stage mix, tiles for steps, sleep,
+resting heart rate and weight (each compared with the month before), and one
+large chart at a time — a night-by-night **Sleep Breakdown** (hypnogram),
+**Workout Sessions**, **Calories Burned** and **Weight Trend** — with hover
+details. Step through the charts with ‹ › on the card, the dots below it,
+⌘1–⌘4 or ⌘[ ⌘]. Light, Dark or System appearance; the layout adapts down to a
+720 × 600 window; VoiceOver labels throughout.
 
-At a glance: a KPI banner (sleep score, steps, sleep, resting HR, weight), a
-month filter, and four charts — **Sleep Breakdown**, **Workout Sessions**,
-**Calories Burned**, and **Weight Trend**.
+## Install
 
-## Setup
+Needs [uv](https://docs.astral.sh/uv/) and the Xcode Command Line Tools
+(`xcode-select --install`); full Xcode isn't required.
 
 ```bash
 git clone <repo-url> && cd aayu
-python3 -m venv .venv && source .venv/bin/activate
-pip install -r requirements.txt
+make install        # builds Aayu.app and copies it to /Applications
 ```
 
-Export your data from the Zepp app and drop the folders into `data/` — one
-`.csv` per folder:
+Or `make app` to build `dist/Aayu.app` without installing, and `make run` to
+run a debug build from source.
+
+## Use
+
+1. Export your data from the Zepp app and unzip it.
+2. Open Aayu, click **Choose Zepp Folder…** (⌘O) and pick the unzipped folder
+   (the one containing `SLEEP/`, `ACTIVITY/`, `BODY/`, …) — or drop the folder
+   onto the window. **Help › Aayu Help** (⌘?) walks through the export.
+3. If the folder is in Documents, Desktop or Downloads, macOS asks once whether
+   Aayu may access it — click **Allow**.
+
+Settings (⌘,):
+
+| Setting | What it does |
+| --- | --- |
+| Zepp data folder | Where your export lives. Shows which data types were found. |
+| Reload when a new export appears | Picks up a new export automatically. ⌘R reloads by hand. |
+| Appearance | System, Light or Dark. |
+| Weight units | lbs or kg, for the KPI and the weight chart. |
+| Open on | Start on the latest month or the last 30 days. |
+
+## How it's built
+
+A SwiftUI app with Swift Charts in front of a Python (pandas) backend. The app
+starts the backend as a hidden helper and they exchange JSON over a private
+pipe — no network port, nothing else on your Mac can read the data.
 
 ```
-data/
-├── ACTIVITY/        ├── SLEEP/
-├── BODY/            ├── SLEEP_MINUTE/
-├── HEARTRATE_AUTO/  ├── SPORT/
-└── USER/
+app/                        # SwiftUI front end (Swift package, Swift 6)
+  Sources/Aayu/main.swift   #   the executable: just launches AayuKit
+  Sources/AayuKit/          #   App, Backend (the pipe), Model, Features,
+                            #   Charts, DesignSystem, Support (logging)
+  Tests/AayuKitTests/       #   Swift Testing, on synthetic data
+  Info.plist, PrivacyInfo.xcprivacy
+backend/
+  aayu_backend/             # Python backend
+    data.py                 #   CSV loading, cleaning, KPI values
+    series.py               #   the numbers behind each chart
+    server.py               #   JSON-lines protocol + folder watcher
+  tests/                    #   pytest, on synthetic fixtures (+ a golden snapshot)
+  pyproject.toml, uv.lock   #   pinned dependencies
+scripts/
+  bundle.sh                 #   assembles + signs Aayu.app
+  make_icon.py              #   draws the app icon
+Makefile                    # run / app / install / test / lint / clean
 ```
 
-## Run
+## Development
 
 ```bash
-streamlit run streamlit_app.py
+make run     # debug build, backend from source; logs in ~/Library/Caches/aayu/build/Aayu-dev.log
+make test    # backend pytest + app Swift Testing
+make lint    # ruff + mypy --strict
 ```
 
-Opens at http://localhost:8501. (Use `streamlit run`, not `python` — a plain
-`python streamlit_app.py` won't serve the app.)
-
-## Project Structure
-
-```
-streamlit_app.py    # entry point — the Streamlit view
-core/               # framework-agnostic logic (no Streamlit)
-  data.py           #   CSV loading, processing, KPI values
-  charts.py         #   Plotly figure builders (one per chart)
-  theme.py          #   colours + Plotly layout defaults
-ui/                 # Streamlit view: styles.py (CSS), components.py
-.streamlit/         # base theme config
-```
+Quit Aayu before `make run` — `open` only brings an already-running copy
+forward. Rebuilt apps are ad-hoc signed, so macOS may ask for folder access
+again after a rebuild. The app logs to unified logging (subsystem
+`io.github.nikhil-kunapareddy.aayu`); request payloads are never logged.
 
 ## Data Privacy
 
-`data/` is gitignored and never committed — your health data stays local.
+Everything stays on your Mac: the app reads only the folder you choose and
+makes no network requests — no tracking, no data collected (see
+`app/PrivacyInfo.xcprivacy`). Tests use made-up data only. `data/` is gitignored, so health data you keep in
+the repo is never committed.
