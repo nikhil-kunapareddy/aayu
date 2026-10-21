@@ -32,6 +32,14 @@ public struct AayuApp: App {
                 .environment(model)
                 .tint(Theme.blue)
         }
+
+        // Help › Aayu Help (⌘?), and the welcome screen's "How do I export from Zepp?".
+        Window("Aayu Help", id: HelpView.windowID) {
+            HelpView()
+                .tint(Theme.blue)
+        }
+        .windowResizability(.contentSize)
+        .defaultPosition(.center)
     }
 }
 

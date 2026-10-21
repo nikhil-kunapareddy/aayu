@@ -3,7 +3,8 @@ import Foundation
 /// The backend as the model sees it: typed requests in, decoded results out,
 /// and the events it pushes. `Backend` runs the real helper; tests use a fake.
 protocol BackendClient: Sendable {
-    /// Send `request` and decode its result.
+    /// Send `request` and decode its result. Throws `CancellationError` when
+    /// the calling task is cancelled, and an `AppError` for any failure.
     func call<Request: BackendRequest>(_ request: Request) async throws -> Request.Result
 
     /// Events the backend pushes, e.g. "reloaded" after an auto-reload. Meant

@@ -119,17 +119,156 @@ struct DashboardModelTests {
         await fake.waitForDashboardRequests(2)
         await fake.release(1, with: .success(try Sample.dashboard()))
         await second.value
-        await fake.release(0, with: .failure(AppError.backend("old")))
+        await fake.release(0, with: .failure(AppError.backend(code: .internal, message: "old")))
         await first.value
         #expect(model.dashboard != nil)
+        #expect(model.issue == nil)
     }
 
-    @Test func backendErrorsAreShown() async throws {
-        let model = DashboardModel(backend: FakeBackend { _ in throw AppError.backend("No folder is open.") },
-                                   defaults: try Sample.defaults())
+    @Test func withoutADashboardAFailureFillsTheWindow() async throws {
+        let noFolder = AppError.backend(code: .noFolder, message: "No folder is open.")
+        let model = DashboardModel(backend: FakeBackend { _ in throw noFolder }, defaults: try Sample.defaults())
         await model.refresh()
-        guard case .failed(let message) = model.phase else { Issue.record("expected .failed"); return }
-        #expect(message == "No folder is open.")
+        guard case .failed(let error) = model.phase else { Issue.record("expected .failed"); return }
+        #expect(error == noFolder)
+        #expect(model.issue == nil)
+        #expect(model.canReload)
+    }
+
+    @Test func aRefreshFailureKeepsTheDashboardAndShowsTheBanner() async throws {
+        let fake = FakeBackend()
+        let model = try await loaded(fake)
+        await fake.setReply { _ in throw AppError.timedOut(method: "dashboard", limit: .seconds(30)) }
+        await model.refresh()
+        #expect(model.dashboard != nil)
+        #expect(model.issue == .timedOut(method: "dashboard", limit: .seconds(30)))
+
+        await fake.setReply { _ in try Sample.dashboard() }
+        await model.refresh()
+        #expect(model.issue == nil)   // the next success clears it
+    }
+
+    @Test func aReloadFailureKeepsTheDashboard() async throws {
+        let fake = FakeBackend()
+        let model = try await loaded(fake)
+        await fake.setFolderStatus(Sample.failed(.folderMissing, "The folder /tmp/zepp doesn't exist any more."))
+        await model.reload()
+        #expect(model.dashboard != nil)
+        #expect(model.issue == .backend(code: .folderMissing, message: "The folder /tmp/zepp doesn't exist any more."))
+        #expect(await fake.methods.last == "reload")   // no dashboard request after a failed reload
+
+        await fake.setFolderStatus(Sample.loaded)
+        await model.reload()
+        #expect(model.issue == nil)
+        #expect(await fake.methods.suffix(2) == ["reload", "dashboard"])
+
+        await fake.setFolderStatus(Sample.failed(.unreadable))
+        await model.reload()
+        #expect(model.issue != nil)
+        model.dismissIssue()
+        #expect(model.issue == nil && model.dashboard != nil)
+    }
+
+    @Test func aFolderThatFailsToOpenReplacesTheDashboard() async throws {
+        let fake = FakeBackend()
+        let model = DashboardModel(backend: fake, defaults: try Sample.defaults())
+        await model.open()
+        #expect(model.dashboard != nil)
+        await fake.setFolderStatus(Sample.failed(.noData))
+        await model.open()   // e.g. a newly chosen folder with no export in it
+        guard case .failed(let error) = model.phase else { Issue.record("expected .failed"); return }
+        #expect(error.suggestsChoosingFolder)
+    }
+
+    @Test func tryAgainAfterAFailedOpenOpensAgain() async throws {
+        let fake = FakeBackend()
+        await fake.setFolderStatus(Sample.failed(.noData))
+        let model = DashboardModel(backend: fake, defaults: try Sample.defaults())
+        await model.open()
+        guard case .failed = model.phase else { Issue.record("expected .failed"); return }
+        await fake.setFolderStatus(Sample.loaded)
+        await model.reload()
+        #expect(model.dashboard != nil)
+        #expect(await fake.calls("open") == 2)
+        #expect(await fake.calls("reload") == 0)
+    }
+
+    @Test func aNewOpenCancelsTheOneStillWaiting() async throws {
+        let fake = FakeBackend()
+        await fake.setOpenDelay(.seconds(3600))   // as if stuck on a privacy prompt
+        let model = DashboardModel(backend: fake, defaults: try Sample.defaults())
+        let first = Task { await model.open() }
+        await fake.waitFor("open")
+        guard case .loading = model.phase else { Issue.record("expected .loading"); return }
+
+        await fake.setOpenDelay(nil)
+        await model.open()
+        await first.value   // returns: cancelled, not left waiting
+        #expect(model.dashboard != nil)
+        #expect(await fake.calls("open") == 2)
+    }
+
+    @Test func isRefreshingOnlyOnceARequestIsSlow() async throws {
+        let fake = FakeBackend()
+        let model = DashboardModel(backend: fake, defaults: try Sample.defaults(), progressDelay: .milliseconds(50))
+        await model.refresh()   // quick: never shows progress
+        try await Task.sleep(for: .milliseconds(150))
+        #expect(!model.isRefreshing)
+
+        await fake.hold()
+        let slow = Task { await model.refresh() }
+        await fake.waitForDashboardRequests(1)
+        try await eventually("isRefreshing turns on") { model.isRefreshing }
+        await fake.release(0, with: .success(try Sample.dashboard()))
+        await slow.value
+        #expect(!model.isRefreshing)
+    }
+
+    @Test func canReloadFollowsThePhase() async throws {
+        let welcome = DashboardModel(backend: FakeBackend(), defaults: try Sample.defaults(folder: ""))
+        #expect(!welcome.canReload)   // still .loading
+        await welcome.open()
+        #expect(!welcome.canReload)   // .welcome
+        let model = try await loaded()
+        #expect(model.canReload)
+    }
+
+    @Test func latestMonth() async throws {
+        let fake = FakeBackend()
+        let model = try await loaded(fake)   // 2026-05, the latest month
+        #expect(!model.canShowLatestMonth)
+        model.step(older: true)
+        await fake.waitForDashboardRequests(2)
+        #expect(model.canShowLatestMonth)
+        model.showLatestMonth()
+        await fake.waitForDashboardRequests(3)
+        #expect(await fake.dashboardRequests.last?.selection == "2026-05")
+        #expect(!model.canShowLatestMonth)
+    }
+
+    @Test(arguments: [true, false])
+    func showChartByPage(withWeight: Bool) async throws {
+        let model = try await loaded(FakeBackend { _ in try Sample.dashboard(weight: withWeight) })
+        #expect(model.currentChart == .sleep)
+        model.show(.calories)
+        #expect(model.chart == 2 && model.currentChart == .calories)
+        model.show(.weight)
+        #expect(model.currentChart == (withWeight ? .weight : .calories))
+        model.show(.sleep)
+        #expect(model.chart == 0 && !model.chartForward)
+    }
+
+    @Test func aNewFolderStartsOnItsDefaultRange() async throws {
+        let fake = FakeBackend()
+        let defaults = try Sample.defaults()
+        let model = DashboardModel(backend: fake, defaults: defaults)
+        await model.open()
+        model.step(older: true)
+        await fake.waitForDashboardRequests(2)
+        defaults.set("/tmp/other", forKey: Pref.folder)
+        await model.open()
+        #expect(await fake.dashboardRequests.last == DashboardRequest(selection: nil, units: .lbs,
+                                                                      defaultRange: .month, night: nil))
     }
 
     @Test func reloadedEventRefreshes() async throws {

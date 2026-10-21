@@ -107,4 +107,10 @@ struct FolderStatus: Decodable, Sendable {
     let found: [String]     // e.g. ["Sleep", "Activity", …]
     let total: Int
     let error: String?      // set when this folder is open and failed to load
+    let errorCode: String?  // `error`'s code (AppError.Code's raw values)
+
+    /// `error` as an AppError, if there is one.
+    var failure: AppError? {
+        error.map { AppError.backend(rawCode: errorCode, message: $0) }
+    }
 }
