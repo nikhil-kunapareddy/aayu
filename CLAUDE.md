@@ -20,7 +20,8 @@ screen shows the app icon itself (`AayuLogo`).
 
 ## Running
 - `make run` — debug build, backend from source; opens the app and waits.
-- `make app` — `dist/Aayu.app` (arm64, ad-hoc signed, frozen backend inside).
+- `make app` — `dist/Aayu.app` (arm64, ad-hoc signed, frozen backend inside);
+  `make dmg` — the release disk image (`dist/Aayu-<version>.dmg`).
   `make install` copies it to `/Applications`.
 - Needs `uv` and the Xcode Command Line Tools (Swift 6, macOS SDK). Full
   Xcode is NOT needed: SwiftPM builds the binary, `scripts/bundle.sh` wraps it.
@@ -31,8 +32,8 @@ screen shows the app icon itself (`AayuLogo`).
   app on macos-26 with Xcode 26.6 (release build with `-warnings-as-errors`, swift test). Both job
   names are required checks on `main`, so renaming a job means updating branch protection.
 - Releases: bump `CFBundleShortVersionString` in `app/Info.plist`, then push tag `v<version>`.
-  `release.yml` checks the tag matches, runs `make test` and `make app`, and uploads `Aayu.zip`
-  (the README's download link is `releases/latest/download/Aayu.zip`).
+  `release.yml` checks the tag matches, runs `make test` and `make dmg`, and uploads `Aayu.dmg` +
+  `Aayu.zip` (the README links `releases/latest/download/Aayu.dmg`). `make dmg` → `dist/Aayu-<version>.dmg`.
 - Logs from `make run`: `~/Library/Caches/aayu/build/Aayu-dev.log` (helper stderr is
   echoed there); the app logs to unified logging: `/usr/bin/log stream --level debug
   --predicate 'subsystem == "io.github.nikhil-kunapareddy.aayu"'` (zsh's `log` is a builtin).

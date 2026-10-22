@@ -28,10 +28,11 @@ details. Step through the charts with ‹ › on the card, the dots below it,
 
 ## Download
 
-**[⬇ Download Aayu for Mac](https://github.com/nikhil-kunapareddy/aayu/releases/latest/download/Aayu.zip)**
-(Apple Silicon, macOS 15 or later) · [all releases](https://github.com/nikhil-kunapareddy/aayu/releases)
+**[⬇ Download Aayu for Mac (.dmg)](https://github.com/nikhil-kunapareddy/aayu/releases/latest/download/Aayu.dmg)**
+(Apple Silicon, macOS 15 or later) · [.zip](https://github.com/nikhil-kunapareddy/aayu/releases/latest/download/Aayu.zip)
+· [all releases](https://github.com/nikhil-kunapareddy/aayu/releases)
 
-1. Unzip it and drag **Aayu** into **Applications**.
+1. Open the `.dmg` and drag **Aayu** onto the **Applications** shortcut.
 2. The app isn't notarized by Apple, so macOS blocks the first launch. Open
    **System Settings › Privacy & Security**, find "Aayu was blocked…" and
    click **Open Anyway**. You only need to do this once per version. Or in
@@ -109,8 +110,8 @@ CI (GitHub Actions) runs the backend checks on Linux and builds and tests
 the app on macOS for every pull request; `main` only accepts pull requests
 that pass both. To publish a release, bump `CFBundleShortVersionString` in
 `app/Info.plist`, then push a matching tag (`git tag v2.0.1 && git push
-origin v2.0.1`); the Release workflow builds, signs (ad hoc), zips and
-uploads `Aayu.app`.
+origin v2.0.1`); the Release workflow builds, signs (ad hoc) and
+uploads `Aayu.dmg` and `Aayu.zip`. `make dmg` builds the disk image locally.
 
 Quit Aayu before `make run` — `open` only brings an already-running copy
 forward. Rebuilt apps are ad-hoc signed, so macOS may ask for folder access
