@@ -5,13 +5,14 @@
 Silicon**. Wearable data exported from the **Zepp** app (Amazfit devices) is
 loaded and crunched by a **Python backend** (pandas) and drawn by a **SwiftUI
 front end** with **Swift Charts**. The user picks the Zepp export folder in
-Settings. Look (from a dashboard mock-up the user supplied): a dark navy
-header — greeting, month control, a frosted Sleep Score panel (ring + stage
-mix) — over a pale page of white KPI tiles and one chart card at a time
-(‹ › on its edges, dots below, ⌘[ ⌘]); no title bar. The
-app icon is the user's Aayu logo (lavender crescent "boat" with a violet sail
-on an indigo tile), redrawn as clean vectors in `scripts/make_icon.py` from the
-artwork in `assets/image copy.png`; the welcome
+Settings. Look (from a dashboard mock-up the user supplied): a header —
+greeting, month control, a frosted Sleep Score panel (ring + stage mix) — over
+a page of KPI tiles and one chart card at a time (‹ › on its edges, dots
+below, ⌘[ ⌘]), all on one gradient with no seam under the header (white →
+pale periwinkle in Light, navy → violet in Dark); no title bar. The
+app icon is the user's Aayu logo (a white-to-lavender lotus on an indigo
+tile), cut from the artwork in `assets/logo.png` by `scripts/make_icon.py` and
+fitted to Apple's icon grid; the welcome
 screen shows the app icon itself (`AayuLogo`).
 
 > History: Dash → Streamlit → FastAPI + Streamlit → pywebview + Plotly → this.
@@ -80,10 +81,10 @@ are naive local `YYYY-MM-DDTHH:MM:SS`, parsed in the Mac's timezone.
 - Colours, type sizes, radii and spacing come only from `DesignSystem/` (`Theme.`):
   `Palette` (WCAG AA-checked by `ContrastTests`), `Typography` (`Theme.title3`,
   `Theme.metric`, `Theme.micro`… — no literal `.font(.system(size:))`), `Metrics`,
-  `.card()` for white cards, `.frosted(_:)` on the dark header. Buttons use
+  `.card()` for white cards, `.frosted(_:)` on the header. Buttons use
   `FrostedButtonStyle` (header) / `CardButtonStyle` / `DotButtonStyle` so every
-  control has hover, pressed, disabled and focus states. The icon has its own
-  palette, sampled from the logo, in `scripts/make_icon.py`.
+  control has hover, pressed, disabled and focus states. The icon's colours
+  come from the logo artwork, `assets/logo.png`, not from `Theme`.
 - Layout adapts to width via `measuringLayoutClass()` (regular ≥ 1100 pt,
   compact ≥ 860, narrow below: tiles 2 × 2). Minimum window 720 × 600; the
   header and page share one ScrollView, so a short window scrolls instead of
@@ -97,9 +98,13 @@ are naive local `YYYY-MM-DDTHH:MM:SS`, parsed in the Mac's timezone.
   month, ⌥⌘←/⌥⌘→ night, ⌘1–⌘4 / ⌘[ ⌘] charts, ⌘? help. Respect Reduce Motion.
 - Settings → Appearance (System / Light / Dark, default Light). Page colours
   take a light and a dark value (`rgb(light, dark)` in `Palette.swift`); the
-  header is dark in both, so colours on it stay fixed. `Theme.apply` sets
+  header follows the appearance too: colour it with `Theme.headerInk`,
+  `headerUp`/`headerDown`, `panel`, `panelStroke` — not `.white`. `Theme.apply` sets
   `NSApp.appearance`; don't add `.preferredColorScheme`, which overrides it
   per window. Use `Theme.card`/`Theme.ink`, not `.white`/`.black`, on the page.
+  The header has no background of its own: `WindowBackground` runs one gradient
+  behind header, page and Settings, so there's no seam under the header. The
+  welcome and loading screens stay on the dark gradient (`HeaderBackground`).
 - The window has no title bar (`.hiddenTitleBar`); the header drags the window
   (`HeaderBackground` uses `WindowDragGesture`). Keep header content below
   the traffic lights (top padding).

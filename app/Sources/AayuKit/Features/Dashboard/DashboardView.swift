@@ -54,7 +54,7 @@ struct DashboardView: View {
             .scrollBounceBehavior(.basedOnSize)
             .onGeometryChange(for: CGFloat.self) { $0.size.height } action: { viewport = $0 }
             .animation(.easeInOut(duration: 0.2), value: model.issue)
-            .background(Theme.page)
+            .background(WindowBackground())
         }
     }
 }

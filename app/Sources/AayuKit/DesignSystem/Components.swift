@@ -19,7 +19,7 @@ struct Swatch: View {
 struct ChangeLabel: View {
     /// Whether a change reads as better, worse, or neither.
     enum Tone { case better, worse, neutral }
-    /// The page (white cards) or the dark header.
+    /// The page (cards) or the header.
     enum Surface { case page, header }
 
     let text: String           // "−3 bpm vs April"
@@ -75,9 +75,9 @@ struct ChangeLabel: View {
         case (.better, .page): Theme.up
         case (.worse, .page): Theme.down
         case (.neutral, .page): Theme.sub
-        case (.better, .header): Theme.upOnDark
-        case (.worse, .header): Theme.downOnDark
-        case (.neutral, .header): .white.opacity(0.75)
+        case (.better, .header): Theme.headerUp
+        case (.worse, .header): Theme.headerDown
+        case (.neutral, .header): Theme.headerInk.opacity(0.75)
         }
     }
 }

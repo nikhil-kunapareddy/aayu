@@ -9,7 +9,7 @@ extension View {
             .shadow(color: Theme.night.opacity(0.06), radius: 12, y: 4)
     }
 
-    /// A frosted shape on the dark header.
+    /// A frosted shape on the header.
     func frosted<S: InsettableShape>(_ shape: S) -> some View {
         background(Theme.panel, in: shape).overlay(shape.strokeBorder(Theme.panelStroke))
     }

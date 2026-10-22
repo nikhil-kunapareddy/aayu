@@ -4,17 +4,22 @@ import SwiftUI
 /// The namespace is spread over DesignSystem/: the palette (here), Typography,
 /// Metrics, Format, Appearance, Modifiers, ButtonStyles and Components.
 ///
-/// The look: a deep-navy header with a frosted Sleep Score panel, over a pale
-/// page of white cards (in Dark appearance, a deeper navy page of navy cards).
+/// The look: a header with a frosted Sleep Score panel over a page of cards, on
+/// one gradient per window that runs from the header down into the page, with no
+/// seam between them (`WindowBackground`). Light: white to pale periwinkle, into
+/// a pale page of white cards. Dark: navy and violet, into a deeper navy page of
+/// navy cards.
 /// Sleep stages run deep blue → sky → lavender, with a warm peach for "Awake".
 ///
 /// Contrast (WCAG 2.1): text colors are ≥ 4.5:1 on the card they sit on, chart
 /// marks and controls ≥ 3:1, in both appearances (`ContrastTests` checks them).
 enum Theme {
     // ── Palette ──────────────────────────────────────────────────────────────
-    // `rgb(light, dark)` colors follow the appearance; the header is dark in both.
-    static let night  = rgb(0x0B1437)   // header, top
-    static let dusk   = rgb(0x1C2A6E)   // header, bottom
+    // `rgb(light, dark)` colors follow the appearance.
+    static let night  = rgb(0x0B1437)   // dark header, top (and the welcome screen's)
+    static let dusk   = rgb(0x1C2A6E)   // dark header, bottom
+    static let dawn   = rgb(0xFFFFFF)   // light header, top
+    static let haze   = rgb(0xDDE2F8)   // light header, bottom
     static let violet = rgb(0x7C6CF5)
     static let blue   = rgb(0x2F5BEA, 0x4F7BF7)   // primary data color
     static let navy   = rgb(0x13235B, 0x5A73E0)   // Strength
@@ -29,16 +34,17 @@ enum Theme {
     static let grid   = rgb(0xEAEDF3, 0x222A49)
     static let up     = rgb(0x15803D, 0x34D399)   // a change for the better
     static let down   = rgb(0xC2410C, 0xFB923C)   // a change for the worse
-    static let upOnDark = rgb(0x6EE7B7)           // the same, on the header
-    static let downOnDark = rgb(0xFDBA74)
+    static let headerInk = rgb(0x0B1437, 0xFFFFFF)   // text and icons on the header; tints its controls
+    static let headerUp = rgb(0x166534, 0x6EE7B7)    // `up` and `down`, on the header
+    static let headerDown = rgb(0x9A3412, 0xFDBA74)
     static let warning = rgb(0xB45309, 0xFBBF24)   // a problem that needs attention (status banner)
     static let dot    = rgb(0x848C9C, 0x5A6488)   // an inactive pager dot
     static let hoverRule = sub.opacity(0.5)       // the line under the pointer on a chart
 
     static let header = LinearGradient(colors: [night, dusk], startPoint: .topLeading, endPoint: .bottomTrailing)
-    static let headerRule = Color.white.opacity(0.08)    // under the header, in Dark
-    static let panel = Color.white.opacity(0.05)          // frosted panel on the header
-    static let panelStroke = Color.white.opacity(0.12)
+    static let headerLight = LinearGradient(colors: [dawn, haze], startPoint: .topLeading, endPoint: .bottomTrailing)
+    static let panel = rgb((0xFFFFFF, 0.75), (0xFFFFFF, 0.05))   // frosted panel on the header
+    static let panelStroke = rgb((0x0B1437, 0.08), (0xFFFFFF, 0.12))
     static let ring = AngularGradient(colors: [rgb(0xC4B5FD), rgb(0x818CF8), blue, rgb(0xC4B5FD)], center: .center)
 
     /// Sleep stages, deepest first, with color and hypnogram level (Awake on top).
@@ -72,6 +78,14 @@ enum Theme {
     private static func rgb(_ light: Int, _ dark: Int) -> Color {
         Color(nsColor: NSColor(name: nil) { appearance in
             nsColor(appearance.bestMatch(from: [.aqua, .darkAqua]) == .darkAqua ? dark : light)
+        })
+    }
+
+    /// A translucent color with a value for each appearance, as (hex, opacity).
+    private static func rgb(_ light: (Int, CGFloat), _ dark: (Int, CGFloat)) -> Color {
+        Color(nsColor: NSColor(name: nil) { appearance in
+            let (hex, alpha) = appearance.bestMatch(from: [.aqua, .darkAqua]) == .darkAqua ? dark : light
+            return nsColor(hex).withAlphaComponent(alpha)
         })
     }
 

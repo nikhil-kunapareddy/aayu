@@ -62,6 +62,10 @@ struct SettingsView: View {
             }
         }
         .formStyle(.grouped)
+        // The dashboard's background, behind the form and the title bar.
+        .scrollContentBackground(.hidden)
+        .containerBackground(for: .window) { WindowBackground() }
+        .toolbarBackgroundVisibility(.hidden, for: .windowToolbar)
         .frame(width: 500)
         .fixedSize(horizontal: false, vertical: true)
         .zeppFolderChooser(isPresented: $choosing)
