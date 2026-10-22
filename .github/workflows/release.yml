@@ -1,7 +1,8 @@
 # Builds Aayu.app and publishes it as a GitHub Release. Runs when a version
 # tag is pushed (git tag v2.0.0 && git push origin v2.0.0), or by hand from
 # the Actions tab. The tag must match CFBundleShortVersionString in
-# app/Info.plist. The README links to releases/latest/download/Aayu.zip.
+# app/Info.plist. The README links to releases/latest/download/Aayu.dmg
+# (and Aayu.zip).
 name: Release
 
 on:
@@ -43,22 +44,24 @@ jobs:
           echo "VERSION=$version" >> "$GITHUB_ENV"
       - name: Test
         run: make test
-      - name: Build Aayu.app
-        run: make app
+      - name: Build Aayu.app and the disk image
+        run: make dmg
       - name: Verify the signature
         run: codesign --verify --deep --strict --verbose=2 dist/Aayu.app
       - name: Package
         run: |
+          cp "dist/Aayu-$VERSION.dmg" Aayu.dmg
+          cp "dist/Aayu-$VERSION.dmg" "Aayu-$VERSION.dmg"
           ditto -c -k --sequesterRsrc --keepParent dist/Aayu.app "Aayu-$VERSION.zip"
           cp "Aayu-$VERSION.zip" Aayu.zip
-          shasum -a 256 Aayu.zip "Aayu-$VERSION.zip" > SHA256SUMS.txt
+          shasum -a 256 Aayu.dmg "Aayu-$VERSION.dmg" Aayu.zip "Aayu-$VERSION.zip" > SHA256SUMS.txt
       - name: Publish
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           if gh release view "$TAG" >/dev/null 2>&1; then
-            gh release upload "$TAG" Aayu.zip "Aayu-$VERSION.zip" SHA256SUMS.txt --clobber
+            gh release upload "$TAG" Aayu.dmg "Aayu-$VERSION.dmg" Aayu.zip "Aayu-$VERSION.zip" SHA256SUMS.txt --clobber
           else
-            gh release create "$TAG" Aayu.zip "Aayu-$VERSION.zip" SHA256SUMS.txt \
+            gh release create "$TAG" Aayu.dmg "Aayu-$VERSION.dmg" Aayu.zip "Aayu-$VERSION.zip" SHA256SUMS.txt \
               --title "Aayu $VERSION" --generate-notes --target "$GITHUB_SHA"
           fi

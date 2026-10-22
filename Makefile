@@ -12,7 +12,7 @@ BUILD  := $(CACHE)/build
 SWIFT  := swift build --package-path app --scratch-path $(BUILD)/swift
 ICON   := $(BUILD)/Aayu.icns
 
-.PHONY: run app install clean test test-app test-backend lint
+.PHONY: run app dmg install clean test test-app test-backend lint
 
 # Debug SwiftUI build; the backend runs from (a copy of) its source with the
 # venv. Launched with `open` like a normal app; waits until you quit, with the
@@ -30,6 +30,18 @@ app: $(VENV)/.installed $(ICON)
 	scripts/bundle.sh $(BUILD)/swift/release/Aayu $(ICON) $(BUILD)/Aayu.app $(BUILD)/backend/aayu-backend
 	rm -rf dist/Aayu.app && mkdir -p dist && ditto $(BUILD)/Aayu.app dist/Aayu.app
 	@echo "Built dist/Aayu.app — drag it to /Applications, or: make install"
+
+# Release disk image: Aayu.app beside an Applications shortcut, so installing
+# is a drag. Built from the signed bundle outside iCloud, then copied to dist/.
+VERSION = $(shell plutil -extract CFBundleShortVersionString raw app/Info.plist)
+dmg: app
+	rm -rf $(BUILD)/dmg $(BUILD)/Aayu.dmg && mkdir -p $(BUILD)/dmg
+	ditto $(BUILD)/Aayu.app $(BUILD)/dmg/Aayu.app
+	ln -s /Applications $(BUILD)/dmg/Applications
+	hdiutil create -volname "Aayu $(VERSION)" -srcfolder $(BUILD)/dmg -fs HFS+ -format ULFO -ov $(BUILD)/Aayu.dmg
+	hdiutil verify $(BUILD)/Aayu.dmg
+	cp $(BUILD)/Aayu.dmg dist/Aayu-$(VERSION).dmg
+	@echo "Built dist/Aayu-$(VERSION).dmg"
 
 install: app
 	rm -rf /Applications/Aayu.app
