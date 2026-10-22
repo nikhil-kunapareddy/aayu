@@ -1,0 +1,64 @@
+# Builds Aayu.app and publishes it as a GitHub Release. Runs when a version
+# tag is pushed (git tag v2.0.0 && git push origin v2.0.0), or by hand from
+# the Actions tab. The tag must match CFBundleShortVersionString in
+# app/Info.plist. The README links to releases/latest/download/Aayu.zip.
+name: Release
+
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Version tag to publish, e.g. v2.0.0 (created on the selected branch's commit if it doesn't exist)"
+        required: true
+
+permissions:
+  contents: write
+
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+jobs:
+  release:
+    name: Build and publish
+    runs-on: macos-26
+    timeout-minutes: 45
+    env:
+      DEVELOPER_DIR: /Applications/Xcode_26.6.app/Contents/Developer
+      TAG: ${{ inputs.tag || github.ref_name }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: astral-sh/setup-uv@18d369b23da25a81e9458561248e1aafff6a70fa # v10.3.1
+        with:
+          version: "0.11.2"
+      - name: Check the tag matches the app version
+        run: |
+          version=$(plutil -extract CFBundleShortVersionString raw app/Info.plist)
+          if [ "$TAG" != "v$version" ]; then
+            echo "::error::Tag $TAG doesn't match app/Info.plist version $version"
+            exit 1
+          fi
+          echo "VERSION=$version" >> "$GITHUB_ENV"
+      - name: Test
+        run: make test
+      - name: Build Aayu.app
+        run: make app
+      - name: Verify the signature
+        run: codesign --verify --deep --strict --verbose=2 dist/Aayu.app
+      - name: Package
+        run: |
+          ditto -c -k --sequesterRsrc --keepParent dist/Aayu.app "Aayu-$VERSION.zip"
+          cp "Aayu-$VERSION.zip" Aayu.zip
+          shasum -a 256 Aayu.zip "Aayu-$VERSION.zip" > SHA256SUMS.txt
+      - name: Publish
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            gh release upload "$TAG" Aayu.zip "Aayu-$VERSION.zip" SHA256SUMS.txt --clobber
+          else
+            gh release create "$TAG" Aayu.zip "Aayu-$VERSION.zip" SHA256SUMS.txt \
+              --title "Aayu $VERSION" --generate-notes --target "$GITHUB_SHA"
+          fi

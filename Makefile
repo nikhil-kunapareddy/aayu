@@ -44,12 +44,15 @@ $(VENV)/.installed: backend/pyproject.toml backend/uv.lock
 	touch $@
 
 # App tests (Swift Testing). The Command Line Tools keep Testing.framework
-# outside the default search paths, so point the compiler and linker at it.
+# outside the default search paths, so point the compiler and linker at it;
+# full Xcode (as on CI) finds it by itself.
+ifneq ($(findstring CommandLineTools,$(shell xcode-select -p 2>/dev/null)),)
 TESTING := /Library/Developer/CommandLineTools/Library/Developer
+TEST_FLAGS := -Xswiftc -F -Xswiftc $(TESTING)/Frameworks -Xlinker -F -Xlinker $(TESTING)/Frameworks \
+  -Xlinker -rpath -Xlinker $(TESTING)/Frameworks -Xlinker -rpath -Xlinker $(TESTING)/usr/lib
+endif
 test-app:
-	swift test --package-path app --scratch-path $(BUILD)/swift \
-	  -Xswiftc -F -Xswiftc $(TESTING)/Frameworks -Xlinker -F -Xlinker $(TESTING)/Frameworks \
-	  -Xlinker -rpath -Xlinker $(TESTING)/Frameworks -Xlinker -rpath -Xlinker $(TESTING)/usr/lib
+	swift test --package-path app --scratch-path $(BUILD)/swift $(TEST_FLAGS)
 
 test: test-backend test-app
 
