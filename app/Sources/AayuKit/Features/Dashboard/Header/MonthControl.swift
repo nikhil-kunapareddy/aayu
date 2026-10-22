@@ -62,7 +62,12 @@ struct RangeMenu: View {
         } label: {
             HStack(spacing: 8) {
                 Image(systemName: "calendar")
-                Text(Theme.rangeLabel(d.selection)).font(Theme.body.weight(.medium))
+                // As wide as the longest option, so the arrows don't move as the month changes.
+                ZStack {
+                    ForEach(d.options, id: \.self) { Text(Theme.rangeLabel($0)).hidden() }
+                    Text(Theme.rangeLabel(d.selection))
+                }
+                .font(Theme.body.weight(.medium))
                 Image(systemName: "chevron.down").font(Theme.micro.weight(.bold)).opacity(0.7)
             }
             .padding(.horizontal, 16)
