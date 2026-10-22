@@ -130,7 +130,8 @@ _STAGE_ZERO = 0.15                                     # stage ratio vs ideal
 _DURATION_FULL_H, _DURATION_ZERO_H = 0.5, 3.0          # mean time asleep vs target
 _AWAKENINGS_FULL, _AWAKENINGS_ZERO = 2.0, 6.0          # mean awakenings a night
 
-# Weights of the parts in the 0–100 score.
+# Weights of the parts in the 0–100 score. The app's ScoreInfo popover states
+# these, the 7.5 h target and the 2 awakenings in words: change it with them.
 _W_TIMING, _W_CONSISTENCY, _W_STAGES, _W_DURATION, _W_AWAKENINGS = 0.30, 0.15, 0.25, 0.20, 0.10
 
 

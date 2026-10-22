@@ -46,10 +46,13 @@ struct ScorePanel: View {
     /// "Sleep Score", the change pill, and what the score's parts say.
     private var story: some View {
         VStack(alignment: .leading, spacing: 8) {
-            Text("Sleep Score")
-                .font(Theme.title2)
-                .foregroundStyle(Theme.headerInk)
-                .accessibilityAddTraits(.isHeader)
+            HStack(spacing: 8) {
+                Text("Sleep Score")
+                    .font(Theme.title2)
+                    .foregroundStyle(Theme.headerInk)
+                    .accessibilityAddTraits(.isHeader)
+                ScoreInfoButton(parts: d.kpis.sleepScoreParts)
+            }
             if let change = d.kpis.sleepScoreChange {
                 ScorePill(change: ChangeLabel(Double(change), higherIsBetter: true, surface: .header) {
                     String(localized: "\($0) vs the 14 nights before")
