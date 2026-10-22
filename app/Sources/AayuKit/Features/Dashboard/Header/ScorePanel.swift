@@ -46,7 +46,7 @@ struct ScorePanel: View {
         VStack(alignment: .leading, spacing: 8) {
             Text("Sleep Score")
                 .font(Theme.title2)
-                .foregroundStyle(.white)
+                .foregroundStyle(Theme.headerInk)
                 .accessibilityAddTraits(.isHeader)
             if let change = d.kpis.sleepScoreChange {
                 ScorePill(change: ChangeLabel(Double(change), higherIsBetter: true, surface: .header) {
@@ -55,7 +55,7 @@ struct ScorePanel: View {
             }
             Text(ScoreText.message(d.kpis.sleepScore, d.kpis.sleepScoreParts))
                 .font(Theme.body)
-                .foregroundStyle(.white.opacity(0.75))
+                .foregroundStyle(Theme.headerInk.opacity(0.75))
                 .lineSpacing(2)
                 .fixedSize(horizontal: false, vertical: true)
         }
@@ -76,9 +76,9 @@ struct ScorePill: View {
 
     private var tint: Color {
         switch change.tone {
-        case .better: Theme.upOnDark.opacity(0.16)
-        case .worse: Theme.downOnDark.opacity(0.16)
-        case .neutral: .white.opacity(0.08)
+        case .better: Theme.headerUp.opacity(0.16)
+        case .worse: Theme.headerDown.opacity(0.16)
+        case .neutral: Theme.headerInk.opacity(0.08)
         }
     }
 }
@@ -91,7 +91,7 @@ struct ScoreRing: View {
 
     var body: some View {
         ZStack {
-            Circle().stroke(.white.opacity(0.10), lineWidth: 12)
+            Circle().stroke(Theme.headerInk.opacity(0.10), lineWidth: 12)
             Circle()
                 .trim(from: 0, to: shown / 100)
                 .stroke(Theme.ring, style: StrokeStyle(lineWidth: 12, lineCap: .round))
@@ -103,7 +103,7 @@ struct ScoreRing: View {
                     .animation(reduceMotion ? nil : .smooth, value: score)
                 Text("/100").font(Theme.bodyEmphasis).opacity(0.6)
             }
-            .foregroundStyle(.white)
+            .foregroundStyle(Theme.headerInk)
         }
         .padding(6)   // half the stroke, which straddles the circle's edge
         .onChange(of: score, initial: true) { _, score in
@@ -135,7 +135,7 @@ struct StageMix: View {
             if !inline {
                 Text("Sleep Stages")
                     .font(Theme.title2)
-                    .foregroundStyle(.white)
+                    .foregroundStyle(Theme.headerInk)
                     .accessibilityAddTraits(.isHeader)
             }
             bar(shares: shares, colors: order.map(\.color))
@@ -161,9 +161,9 @@ struct StageMix: View {
     @ViewBuilder private func item(_ name: String, color: Color, percent: Int) -> some View {
         let label = HStack(spacing: 8) {
             Swatch(color: color)
-            Text(name).font(Theme.bodyEmphasis).foregroundStyle(.white.opacity(0.85))
+            Text(name).font(Theme.bodyEmphasis).foregroundStyle(Theme.headerInk.opacity(0.85))
         }
-        let value = Text(Theme.percent(whole: percent)).foregroundStyle(.white).monospacedDigit()
+        let value = Text(Theme.percent(whole: percent)).foregroundStyle(Theme.headerInk).monospacedDigit()
         if inline {
             HStack(spacing: 8) { label; value.font(Theme.bodyEmphasis.weight(.semibold)) }
         } else {
@@ -180,7 +180,7 @@ struct StageMix: View {
                 }
             }
             .frame(width: geo.size.width, alignment: .leading)
-            .background(.white.opacity(0.08))
+            .background(Theme.headerInk.opacity(0.08))
             .clipShape(RoundedRectangle(cornerRadius: 4))
         }
     }

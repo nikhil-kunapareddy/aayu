@@ -4,11 +4,12 @@ import SwiftUI
 // focus ring (Full Keyboard Access) follows the button's shape. No pointing-hand
 // cursors: Mac controls keep the arrow.
 
-/// A frosted control on the dark header: white 5% at rest, 12% on hover, 18%
-/// pressed; a disabled label dims to 35%.
+/// A frosted control on the header: the panel at rest, tinted with the header's
+/// ink on hover and while pressed (in Dark, white 5% → 12% → 18%); a disabled
+/// label dims to 35%.
 ///
 /// `standalone: false` is for a segment inside an already-frosted container
-/// (the month control): it adds only the difference over the container's 5%.
+/// (the month control): it adds only the tint, over the container's panel.
 struct FrostedButtonStyle<S: Shape>: ButtonStyle {
     var shape: S
     var standalone = true
@@ -32,7 +33,12 @@ private struct FrostedButton<S: Shape>: View {
     var body: some View {
         configuration.label
             .opacity(isEnabled ? 1 : 0.35)
-            .background(Color.white.opacity(fill), in: shape)
+            .background {
+                ZStack {
+                    if standalone { shape.fill(Theme.panel) }
+                    shape.fill(Theme.headerInk.opacity(tint))
+                }
+            }
             .overlay {
                 // A 1-pt border just inside the shape, as `strokeBorder` draws it.
                 if standalone { shape.stroke(Theme.panelStroke, lineWidth: 1).padding(0.5) }
@@ -44,11 +50,10 @@ private struct FrostedButton<S: Shape>: View {
             .animation(.easeOut(duration: 0.08), value: configuration.isPressed)
     }
 
-    /// The white fill's opacity; a segment's composites with its container's 5%.
-    private var fill: Double {
-        let (rest, hover, pressed) = standalone ? (0.05, 0.12, 0.18) : (0, 0.074, 0.137)
-        guard isEnabled else { return rest }
-        return configuration.isPressed ? pressed : hovering ? hover : rest
+    /// The tint's opacity, over the panel: in Dark, white 5% + 7.4% = 12%, + 13.7% = 18%.
+    private var tint: Double {
+        guard isEnabled else { return 0 }
+        return configuration.isPressed ? 0.137 : hovering ? 0.074 : 0
     }
 }
 

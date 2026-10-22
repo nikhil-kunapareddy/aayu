@@ -29,7 +29,7 @@ struct MonthControl: View {
             .accessibilityLabel("Next month")
         }
         .font(Theme.body.weight(.semibold))
-        .foregroundStyle(.white)
+        .foregroundStyle(Theme.headerInk)
         .frosted(Capsule())
         .accessibilityElement(children: .contain)
     }

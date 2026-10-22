@@ -109,8 +109,8 @@ struct DesignSystemTests {
     @MainActor @Test func scorePillUsesTheHeaderColours() {
         let worse = ChangeLabel(-3, higherIsBetter: true, surface: .header) { $0 }
         #expect(worse.tone == .worse)
-        #expect(worse.color == Theme.downOnDark)
-        #expect(ChangeLabel(4, higherIsBetter: true, surface: .header) { $0 }.color == Theme.upOnDark)
+        #expect(worse.color == Theme.headerDown)
+        #expect(ChangeLabel(4, higherIsBetter: true, surface: .header) { $0 }.color == Theme.headerUp)
     }
 
     // ── Month menu ───────────────────────────────────────────────────────────
@@ -164,10 +164,13 @@ struct ContrastTests {
         }
     }
 
-    @Test func textOnTheHeader() throws {
-        for (name, color) in [("upOnDark", Theme.upOnDark), ("downOnDark", Theme.downOnDark)] {
-            for background in [Theme.night, Theme.dusk] {
-                let r = try ratio(color, background, dark: true)
+    /// Against both ends of the header's gradient: night → dusk in Dark, dawn → haze in Light.
+    @Test(arguments: [false, true])
+    func textOnTheHeader(dark: Bool) throws {
+        let ink = [("headerInk", Theme.headerInk), ("headerUp", Theme.headerUp), ("headerDown", Theme.headerDown)]
+        for (name, color) in ink {
+            for background in dark ? [Theme.night, Theme.dusk] : [Theme.dawn, Theme.haze] {
+                let r = try ratio(color, background, dark: dark)
                 #expect(r >= 4.5, "\(name) on the header is \(r):1")
             }
         }
