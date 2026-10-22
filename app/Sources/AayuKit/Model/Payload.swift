@@ -43,6 +43,7 @@ struct ScoreParts: Decodable, Sendable {
     let consistency: Double
     let stages: Double
     let duration: Double
+    let awakenings: Double?   // nil when no night had stage minutes
 }
 
 /// One night's stages over time. `nights` lists every night in the window
@@ -56,6 +57,7 @@ struct Hypnogram: Decodable, Sendable {
     let totals: [StageShare]
     let asleep: Int     // minutes in a sleep stage
     let duration: Int   // start to end, minutes
+    let awakenings: Int?   // runs of Awake between sleep; nil without a minute asleep
 }
 
 struct StageSpan: Decodable, Sendable, Identifiable {

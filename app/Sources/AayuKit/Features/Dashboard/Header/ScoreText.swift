@@ -10,14 +10,19 @@ enum ScoreText {
         let headline = score >= 85 ? "Great sleep!" : score >= 70 ? "Good sleep." : score >= 50 ? "Fair sleep." : "A rough stretch."
         let bed = Theme.clockTime(bedtime, locale: locale), wake = Theme.clockTime(wakeTime, locale: locale)
         // Each part with its tip; on a tie the earlier part wins.
-        let tips = [
+        var tips = [
             (parts.timing, "Bed and wake times are furthest from your targets (\(bed) and \(wake))."),
             (parts.consistency, "A steadier bed and wake schedule would help most."),
             (parts.stages, "Your mix of sleep stages has the most room to improve."),
             (parts.duration, "More time asleep would help most (target 7.5 hours)."),
         ]
+        if let awakenings = parts.awakenings {
+            tips.append((awakenings, "Waking less often in the night would help most."))
+        }
         guard let weakest = tips.min(by: { $0.0 < $1.0 }), weakest.0 < 0.9 else {
-            return headline + " Timing, schedule, stages and duration are all close to target."
+            return headline + (parts.awakenings == nil
+                ? " Timing, schedule, stages and duration are all close to target."
+                : " Timing, schedule, stages, duration and awakenings are all close to target.")
         }
         return headline + " " + weakest.1
     }

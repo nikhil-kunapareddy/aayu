@@ -108,11 +108,16 @@ struct FormatTests {
                 .replacingOccurrences(of: "\u{202F}", with: " ")
         }
         #expect(message(nil, nil) == "Not enough nights in this period for a score.")
-        let close = ScoreParts(timing: 0.95, consistency: 0.9, stages: 1, duration: 0.92)
-        #expect(message(88, close) == "Great sleep! Timing, schedule, stages and duration are all close to target.")
-        let short = ScoreParts(timing: 0.8, consistency: 0.7, stages: 0.9, duration: 0.4)
+        let close = ScoreParts(timing: 0.95, consistency: 0.9, stages: 1, duration: 0.92, awakenings: 0.9)
+        #expect(message(88, close)
+                == "Great sleep! Timing, schedule, stages, duration and awakenings are all close to target.")
+        let noStages = ScoreParts(timing: 0.95, consistency: 0.9, stages: 1, duration: 0.92, awakenings: nil)
+        #expect(message(88, noStages) == "Great sleep! Timing, schedule, stages and duration are all close to target.")
+        let short = ScoreParts(timing: 0.8, consistency: 0.7, stages: 0.9, duration: 0.4, awakenings: 1)
         #expect(message(55, short) == "Fair sleep. More time asleep would help most (target 7.5 hours).")
-        let tie = ScoreParts(timing: 0.5, consistency: 0.5, stages: 0.9, duration: 0.9)
+        let broken = ScoreParts(timing: 0.9, consistency: 0.9, stages: 0.9, duration: 0.9, awakenings: 0.5)
+        #expect(message(72, broken) == "Good sleep. Waking less often in the night would help most.")
+        let tie = ScoreParts(timing: 0.5, consistency: 0.5, stages: 0.9, duration: 0.9, awakenings: 0.5)
         #expect(message(40, tie)
                 == "A rough stretch. Bed and wake times are furthest from your targets (11:30 PM and 6:30 AM).")
         #expect(message(40, tie, bedtime: ClockTime(hour: 22, minute: 0), wakeTime: ClockTime(hour: 6, minute: 0))
@@ -124,5 +129,18 @@ struct FormatTests {
         #expect(WorkoutsChart.caption(d.workouts, calendar: mondayFirst) == "6 sessions · last 9 weeks")
         #expect(CaloriesChart.caption(d.calories) == "avg 390 kcal")
         #expect(CaloriesChart.caption([]) == nil)
+
+        let night = try #require(d.hypnogram)
+        #expect(HypnogramChart.caption(night) == "asleep · \(Theme.duration(minutes: 480)) total · 0 awakenings")
+        var o = try Sample.object()
+        var h = try #require(o["hypnogram"] as? [String: Any])
+        h["awakenings"] = 1
+        o["hypnogram"] = h
+        #expect(try HypnogramChart.caption(#require(Sample.decode(o).hypnogram)).hasSuffix(" · 1 awakening"))
+        h["awakenings"] = NSNull()
+        o["hypnogram"] = h
+        let plain = try #require(Sample.decode(o).hypnogram)
+        #expect(HypnogramChart.caption(plain) == "asleep · \(Theme.duration(minutes: 480)) total")
+        #expect(HypnogramChart.spokenCaption(plain) == "\(Theme.spokenDuration(minutes: 480)) in bed")
     }
 }

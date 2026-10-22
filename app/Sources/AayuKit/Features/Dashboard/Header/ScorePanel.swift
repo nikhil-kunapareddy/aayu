@@ -39,7 +39,7 @@ struct ScorePanel: View {
             .frame(width: layout == .narrow ? 112 : 124, height: layout == .narrow ? 112 : 124)
             .help(String(localized: """
                 Your sleep score for the 14 nights up to \(d.window.end.formatted(.dateTime.month(.wide).day())), \
-                from bed and wake timing, schedule consistency, sleep stages and time asleep.
+                from bed and wake timing, schedule consistency, sleep stages, time asleep and awakenings.
                 """))
     }
 

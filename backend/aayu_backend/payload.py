@@ -24,12 +24,13 @@ class DateWindow(TypedDict):
 
 
 class ScoreParts(TypedDict):
-    """The sleep score's parts, each 0–1 (1 = on target)."""
+    """The sleep score's parts, each 0–1 (1 = on target); awakenings is None without stage minutes."""
 
     timing: float
     consistency: float
     stages: float
     duration: float
+    awakenings: float | None
 
 
 class SleepScore(ScoreParts):
@@ -81,6 +82,7 @@ class Hypnogram(TypedDict):
     totals: list[StageShare]
     asleep: int
     duration: int
+    awakenings: int | None   # runs of Awake minutes between sleep; None without a minute asleep
 
 
 class WorkoutWeek(TypedDict):

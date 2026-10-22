@@ -38,7 +38,21 @@ struct HypnogramChart: View {
         }
     }
 
-    /// "7h 36m" (as `Theme.duration` writes it) over "asleep · 7h 52m total".
+    /// "asleep · 7h 52m total · 2 awakenings" (no awakenings without a minute asleep).
+    static func caption(_ night: Hypnogram) -> String {
+        let total = Theme.duration(minutes: night.duration)
+        guard let n = night.awakenings else { return String(localized: "asleep · \(total) total") }
+        return String(AttributedString(localized: "asleep · \(total) total · ^[\(n) awakening](inflect: true)").characters)
+    }
+
+    /// The same, for VoiceOver: "7 hours, 52 minutes in bed, 2 awakenings".
+    static func spokenCaption(_ night: Hypnogram) -> String {
+        let total = Theme.spokenDuration(minutes: night.duration)
+        guard let n = night.awakenings else { return String(localized: "\(total) in bed") }
+        return String(AttributedString(localized: "\(total) in bed, ^[\(n) awakening](inflect: true)").characters)
+    }
+
+    /// "7h 36m" (as `Theme.duration` writes it) over the caption.
     private var summary: some View {
         let number = { (n: Int) in Text(n.formatted()).font(Theme.metric).foregroundStyle(Theme.ink) }
         let unit = { (u: String) in Text(u).font(Theme.title3.weight(.medium)).foregroundStyle(Theme.sub) }
@@ -52,10 +66,10 @@ struct HypnogramChart: View {
                 }
             }
             .accessibilityLabel(String(localized: "\(Theme.spokenDuration(minutes: night.asleep)) asleep"))
-            Text("asleep · \(Theme.duration(minutes: night.duration)) total")
+            Text(Self.caption(night))
                 .font(Theme.caption)
                 .foregroundStyle(Theme.sub)
-                .accessibilityLabel(String(localized: "\(Theme.spokenDuration(minutes: night.duration)) in bed"))
+                .accessibilityLabel(Self.spokenCaption(night))
         }
         .accessibilityElement(children: .combine)
     }
