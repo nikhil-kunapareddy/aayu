@@ -9,9 +9,9 @@ Settings. Look (from a dashboard mock-up the user supplied): a dark navy
 header — greeting, month control, a frosted Sleep Score panel (ring + stage
 mix) — over a pale page of white KPI tiles and one chart card at a time
 (‹ › on its edges, dots below, ⌘[ ⌘]); no title bar. The
-app icon is the user's Aayu logo (lavender crescent "boat" with a violet sail
-on an indigo tile), redrawn as clean vectors in `scripts/make_icon.py` from the
-artwork in `assets/image copy.png`; the welcome
+app icon is the user's Aayu logo (a white-to-lavender lotus on an indigo
+tile), cut from the artwork in `assets/logo.png` by `scripts/make_icon.py` and
+fitted to Apple's icon grid; the welcome
 screen shows the app icon itself (`AayuLogo`).
 
 > History: Dash → Streamlit → FastAPI + Streamlit → pywebview + Plotly → this.
@@ -82,8 +82,8 @@ are naive local `YYYY-MM-DDTHH:MM:SS`, parsed in the Mac's timezone.
   `Theme.metric`, `Theme.micro`… — no literal `.font(.system(size:))`), `Metrics`,
   `.card()` for white cards, `.frosted(_:)` on the dark header. Buttons use
   `FrostedButtonStyle` (header) / `CardButtonStyle` / `DotButtonStyle` so every
-  control has hover, pressed, disabled and focus states. The icon has its own
-  palette, sampled from the logo, in `scripts/make_icon.py`.
+  control has hover, pressed, disabled and focus states. The icon's colours
+  come from the logo artwork, `assets/logo.png`, not from `Theme`.
 - Layout adapts to width via `measuringLayoutClass()` (regular ≥ 1100 pt,
   compact ≥ 860, narrow below: tiles 2 × 2). Minimum window 720 × 600; the
   header and page share one ScrollView, so a short window scrolls instead of

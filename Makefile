@@ -47,7 +47,7 @@ install: app
 	rm -rf /Applications/Aayu.app
 	ditto $(BUILD)/Aayu.app /Applications/Aayu.app
 
-$(ICON): scripts/make_icon.py $(VENV)/.installed
+$(ICON): scripts/make_icon.py assets/logo.png $(VENV)/.installed
 	$(PYTHON) scripts/make_icon.py $@
 
 # The venv is synced exactly to backend/uv.lock (runtime, build and dev groups).

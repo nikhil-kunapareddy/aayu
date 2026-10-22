@@ -94,7 +94,7 @@ backend/
   pyproject.toml, uv.lock   #   pinned dependencies
 scripts/
   bundle.sh                 #   assembles + signs Aayu.app
-  make_icon.py              #   draws the app icon
+  make_icon.py              #   builds the app icon from assets/logo.png
 Makefile                    # run / app / install / test / lint / clean
 ```
 
