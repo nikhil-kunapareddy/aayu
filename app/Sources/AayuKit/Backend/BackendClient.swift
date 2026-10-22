@@ -40,9 +40,10 @@ struct StatusRequest: BackendRequest {
     let folder: String
 }
 
-/// `dashboard(selection, units, default_range, night)`: everything the
-/// dashboard shows. A nil `selection` (the default range) or `night` (the
-/// window's last night) goes over as JSON null, never as a missing key.
+/// `dashboard(selection, units, default_range, night, bedtime, wake_time)`:
+/// everything the dashboard shows, with the sleep score timed against
+/// `bedtime` and `wakeTime`. A nil `selection` (the default range) or `night`
+/// (the window's last night) goes over as JSON null, never as a missing key.
 struct DashboardRequest: BackendRequest, Equatable {
     typealias Result = Dashboard
     static let method = "dashboard"
@@ -50,10 +51,13 @@ struct DashboardRequest: BackendRequest, Equatable {
     let units: Units
     let defaultRange: DefaultRange
     let night: String?
+    let bedtime: ClockTime
+    let wakeTime: ClockTime
 
     private enum CodingKeys: String, CodingKey {
-        case selection, units, night
+        case selection, units, night, bedtime
         case defaultRange = "default_range"
+        case wakeTime = "wake_time"
     }
 
     // Written out because the synthesized version leaves nil keys out.
@@ -63,6 +67,8 @@ struct DashboardRequest: BackendRequest, Equatable {
         try params.encode(units, forKey: .units)
         try params.encode(defaultRange, forKey: .defaultRange)
         if let night { try params.encode(night, forKey: .night) } else { try params.encodeNil(forKey: .night) }
+        try params.encode(bedtime, forKey: .bedtime)
+        try params.encode(wakeTime, forKey: .wakeTime)
     }
 }
 

@@ -13,6 +13,7 @@ import logging
 import math
 from collections.abc import Callable
 from dataclasses import dataclass
+from datetime import time
 
 import pandas as pd
 
@@ -109,8 +110,15 @@ def _finite(x: float | None) -> float | None:
 
 
 # ── Sleep score ──────────────────────────────────────────────────────────────────
-# Targets on the night-centred clock: 11:30 PM (-0.5) bed, 6:30 AM (6.5) wake.
-_IDEAL_BED, _IDEAL_WAKE = -0.5, 6.5
+@dataclass(frozen=True)
+class SleepTargets:
+    """The bed and wake times the score's timing aims for (set in the app's Settings)."""
+
+    bedtime: time
+    wake_time: time
+
+
+DEFAULT_TARGETS = SleepTargets(time(23, 30), time(6, 30))   # 11:30 PM bed, 6:30 AM wake
 _IDEAL_RATIOS = {"deep": 0.20, "rem": 0.22, "light": 0.53, "awake": 0.05}
 _TARGET_SLEEP_H = 7.5
 SCORE_NIGHTS = 14   # the score covers the trailing 14 nights
@@ -120,9 +128,11 @@ _TIMING_FULL_H, _TIMING_ZERO_H = 1 / 3, 2.0            # mean bed/wake time vs i
 _CONSISTENCY_FULL_H, _CONSISTENCY_ZERO_H = 1 / 3, 1.5  # spread of bed/wake times
 _STAGE_ZERO = 0.15                                     # stage ratio vs ideal
 _DURATION_FULL_H, _DURATION_ZERO_H = 0.5, 3.0          # mean time asleep vs target
+_AWAKENINGS_FULL, _AWAKENINGS_ZERO = 2.0, 6.0          # mean awakenings a night
 
-# Weights of the parts in the 0–100 score.
-_W_TIMING, _W_CONSISTENCY, _W_STAGES, _W_DURATION = 0.30, 0.15, 0.35, 0.20
+# Weights of the parts in the 0–100 score. The app's ScoreInfo popover states
+# these, the 7.5 h target and the 2 awakenings in words: change it with them.
+_W_TIMING, _W_CONSISTENCY, _W_STAGES, _W_DURATION, _W_AWAKENINGS = 0.30, 0.15, 0.25, 0.20, 0.10
 
 
 def _closeness(dev: float, full: float, zero: float) -> float:
@@ -134,19 +144,41 @@ def _closeness(dev: float, full: float, zero: float) -> float:
     return 1 - (dev - full) / (zero - full)
 
 
-def sleep_score(d: Data, asof: pd.Timestamp | None = None) -> int | None:
+def _clock_time(t: time) -> float:
+    """`t` on the night-centred clock of `_clock`: 11:30 PM → -0.5, 6:30 AM → 6.5."""
+    h = t.hour + t.minute / 60
+    return h if h < _CLOCK_SPLIT_H else h - 24
+
+
+def _awakenings(m: pd.DataFrame) -> int | None:
+    """Times a night's sleep broke: runs of Awake minutes between its first and last minute asleep.
+
+    `m` is the night's stage minutes (see `_night_minutes`); None when none of them is asleep.
+    """
+    asleep = (m["stage"] != "Awake").to_numpy()
+    if not asleep.any():
+        return None
+    awake = ~asleep[asleep.argmax():len(asleep) - asleep[::-1].argmax()]
+    return int((awake[1:] & ~awake[:-1]).sum())
+
+
+def sleep_score(d: Data, asof: pd.Timestamp | None = None,
+                targets: SleepTargets = DEFAULT_TARGETS) -> int | None:
     """0–100 sleep score for the latest day (or `asof`), over the trailing 14 nights.
 
-    Timing 30% · Stage ratios 35% · Duration 20% · Consistency 15%.
+    Timing 30% · Stage ratios 25% · Duration 20% · Consistency 15% · Awakenings 10%.
     """
-    parts = sleep_score_parts(d, asof)
+    parts = sleep_score_parts(d, asof, targets)
     return None if parts is None else parts["score"]
 
 
-def sleep_score_parts(d: Data, asof: pd.Timestamp | None = None) -> SleepScore | None:
-    """The sleep score plus its four parts, each 0–1 (1 = on target).
+def sleep_score_parts(d: Data, asof: pd.Timestamp | None = None,
+                      targets: SleepTargets = DEFAULT_TARGETS) -> SleepScore | None:
+    """The sleep score plus its five parts, each 0–1 (1 = on target).
 
     Nights without a bedtime or wake time are left out; None when no night is left.
+    Awakenings come from SLEEP_MINUTE: when no night has stage minutes, that part
+    is None and the score comes from the other four, reweighted to sum to 100%.
     """
     df = d.sleep.sort_values("date")
     if df.empty:
@@ -159,15 +191,15 @@ def sleep_score_parts(d: Data, asof: pd.Timestamp | None = None) -> SleepScore |
 
     bed, wake = _clock(win["start"].dt.tz_convert(TZ)), _clock(win["stop"].dt.tz_convert(TZ))
 
-    # Timing (30%) — average bed/wake vs ideal
-    timing = (_closeness(abs(bed.mean() - _IDEAL_BED), _TIMING_FULL_H, _TIMING_ZERO_H)
-              + _closeness(abs(wake.mean() - _IDEAL_WAKE), _TIMING_FULL_H, _TIMING_ZERO_H)) / 2
+    # Timing (30%) — average bed/wake vs the targets
+    timing = (_closeness(abs(bed.mean() - _clock_time(targets.bedtime)), _TIMING_FULL_H, _TIMING_ZERO_H)
+              + _closeness(abs(wake.mean() - _clock_time(targets.wake_time)), _TIMING_FULL_H, _TIMING_ZERO_H)) / 2
 
     # Consistency (15%) — tightness of the schedule
     consistency = (_closeness(bed.std(ddof=0), _CONSISTENCY_FULL_H, _CONSISTENCY_ZERO_H)
                    + _closeness(wake.std(ddof=0), _CONSISTENCY_FULL_H, _CONSISTENCY_ZERO_H)) / 2
 
-    # Stage ratios (35%) — closeness to the magic ratio (awake only penalised when high)
+    # Stage ratios (25%) — closeness to the magic ratio (awake only penalised when high)
     deep, rem, light, awake = (win["deepSleepTime"].sum(), win["REMTime"].sum(),
                                win["shallowSleepTime"].sum(), win["wakeTime"].sum())
     total = deep + rem + light + awake
@@ -185,12 +217,21 @@ def sleep_score_parts(d: Data, asof: pd.Timestamp | None = None) -> SleepScore |
     avg_asleep_h = (deep + rem + light) / 60 / len(win)
     duration = _closeness(abs(avg_asleep_h - _TARGET_SLEEP_H), _DURATION_FULL_H, _DURATION_ZERO_H)
 
-    score = 100 * (_W_TIMING * timing + _W_CONSISTENCY * consistency + _W_STAGES * stages + _W_DURATION * duration)
+    # Awakenings (10%) — average times a night that sleep broke, over the nights with stage minutes
+    counts = [n for start, stop in zip(win["start"], win["stop"], strict=True)
+              if (n := _awakenings(_night_minutes(d.sleep_minutes, _local(start), _local(stop)))) is not None]
+    awakenings = (_closeness(sum(counts) / len(counts), _AWAKENINGS_FULL, _AWAKENINGS_ZERO)
+                  if counts else None)
+
+    points = _W_TIMING * timing + _W_CONSISTENCY * consistency + _W_STAGES * stages + _W_DURATION * duration
+    score = (100 * (points + _W_AWAKENINGS * awakenings) if awakenings is not None
+             else 100 * points / (1 - _W_AWAKENINGS))
     if not math.isfinite(score):
         return None
     return {"score": round(score), "timing": round(float(timing), 2),
             "consistency": round(float(consistency), 2), "stages": round(float(stages), 2),
-            "duration": round(float(duration), 2)}
+            "duration": round(float(duration), 2),
+            "awakenings": None if awakenings is None else round(awakenings, 2)}
 
 
 # ── Sleep Breakdown (hypnogram) ──────────────────────────────────────────────────
@@ -270,6 +311,7 @@ def hypnogram(d: Data, w: Window, night: str | None = None) -> Hypnogram | None:
                    for k, v in totals.items()],
         "asleep": total - totals["Awake"],                          # minutes in a sleep stage
         "duration": int((stop - start).total_seconds() // 60),      # start to end, minutes
+        "awakenings": _awakenings(m),
     }
 
 
@@ -357,11 +399,11 @@ def _diff(now: float | None, before: float | None, digits: int = 1) -> float | N
     return None if now is None or before is None else round(now - before, digits)
 
 
-def kpis(d: Data, w: Window, units: Units) -> KPIs:
+def kpis(d: Data, w: Window, units: Units, targets: SleepTargets = DEFAULT_TARGETS) -> KPIs:
     """The header numbers for the window, each with its change vs the span before.
 
     The sleep score is for the 14 nights up to the window's last night (vs the
-    14 before those); the averages cover the window (vs the previous window);
+    14 before those), timed against `targets`; the averages cover the window (vs the previous window);
     weight is the last weigh-in by the window's end, and its change across the
     window's weigh-ins.
     """
@@ -369,8 +411,8 @@ def kpis(d: Data, w: Window, units: Units) -> KPIs:
 
     nights = w.clip(d.sleep)
     last_night = pd.Timestamp(nights["date"].max()) if not nights.empty else None
-    parts = sleep_score_parts(d, asof=last_night) if last_night is not None else None
-    before = (sleep_score(d, asof=last_night - pd.Timedelta(days=SCORE_NIGHTS))
+    parts = sleep_score_parts(d, last_night, targets) if last_night is not None else None
+    before = (sleep_score(d, last_night - pd.Timedelta(days=SCORE_NIGHTS), targets)
               if parts and last_night is not None else None)
 
     steps, steps_before = _mean(d.activity, "steps", w), _mean(d.activity, "steps", prev)
@@ -388,7 +430,8 @@ def kpis(d: Data, w: Window, units: Units) -> KPIs:
         "sleep_score": parts["score"] if parts else None,
         "sleep_score_change": parts["score"] - before if parts and before is not None else None,
         "sleep_score_parts": ({"timing": parts["timing"], "consistency": parts["consistency"],
-                               "stages": parts["stages"], "duration": parts["duration"]} if parts else None),
+                               "stages": parts["stages"], "duration": parts["duration"],
+                               "awakenings": parts["awakenings"]} if parts else None),
         "avg_steps": None if steps is None else round(steps),
         "avg_steps_change_pct": _finite(round((steps - steps_before) / steps_before * 100, 1)
                                         if steps is not None and steps_before else None),
@@ -418,11 +461,12 @@ def _section[T](name: str, compute: Callable[[], T], fallback: T) -> T:
 
 # ── The whole dashboard ──────────────────────────────────────────────────────────
 def dashboard(d: Data, selection: str | None, units: Units, default_range: str,
-              night: str | None = None) -> Dashboard:
+              night: str | None = None, targets: SleepTargets = DEFAULT_TARGETS) -> Dashboard:
     """Everything the dashboard shows, for a month ('YYYY-MM') or 'last30'.
 
     An unknown or missing `selection` falls back to `default_range`: the latest
-    month, or 'last30'. `night` picks the Sleep Breakdown night (see hypnogram).
+    month, or 'last30'. `night` picks the Sleep Breakdown night (see hypnogram);
+    `targets` are the bed and wake times the sleep score aims for.
     A section that fails is logged and sent empty (``[]``, or null where the
     app allows it) rather than failing the whole dashboard.
     """
@@ -441,7 +485,7 @@ def dashboard(d: Data, selection: str | None, units: Units, default_range: str,
         "options": options,
         "window": {"start": _ts(w.start), "end": _ts(w.end)},
         "units": units,
-        "kpis": _section("kpis", lambda: kpis(d, w, units), _EMPTY_KPIS),
+        "kpis": _section("kpis", lambda: kpis(d, w, units, targets), _EMPTY_KPIS),
         "stages": _section("stages", lambda: stage_shares(d, w), []),
         "hypnogram": _section("hypnogram", lambda: hypnogram(d, w, night), None),
         "workouts": _section("workouts", lambda: workouts(d, w), no_workouts),

@@ -6,7 +6,7 @@
   "kpis": {
     "sleep_score": 78,
     "sleep_score_change": -3,
-    "sleep_score_parts": {"timing": 0.85, "consistency": 0.6, "stages": 0.9, "duration": 0.75},
+    "sleep_score_parts": {"timing": 0.85, "consistency": 0.6, "stages": 0.9, "duration": 0.75, "awakenings": 0.8},
     "avg_steps": 8000,
     "avg_steps_change_pct": 12.5,
     "avg_sleep_h": 7.2,
@@ -41,7 +41,8 @@
       {"stage": "Awake", "minutes": 30, "share": 0.0625}
     ],
     "asleep": 450,
-    "duration": 480
+    "duration": 480,
+    "awakenings": 0
   },
   "workouts": {
     "start": "2026-04-01T00:00:00",

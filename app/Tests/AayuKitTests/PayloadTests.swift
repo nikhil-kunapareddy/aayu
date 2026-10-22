@@ -19,6 +19,7 @@ struct PayloadTests {
         #expect(d.kpis.sleepScore == 78)
         #expect(d.kpis.sleepScoreChange == -3)
         #expect(d.kpis.sleepScoreParts?.consistency == 0.6)
+        #expect(d.kpis.sleepScoreParts?.awakenings == 0.8)
         #expect(d.kpis.avgSteps == 8000)
         #expect(d.kpis.avgStepsChangePct == 12.5)
         #expect(d.kpis.avgSleepH == 7.2)
@@ -38,6 +39,7 @@ struct PayloadTests {
         #expect(h.segments[1].end == (try utc("2026-05-31T02:30:00")))
         #expect(h.totals.map(\.minutes).reduce(0, +) == h.duration)
         #expect(h.asleep == 450)
+        #expect(h.awakenings == 0)
 
         #expect(d.workouts.weeks.count == 4)
         #expect(d.workouts.weeks[0].week == (try utc("2026-05-18T00:00:00")))

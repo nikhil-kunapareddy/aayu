@@ -90,15 +90,38 @@ struct FormatTests {
         #expect(ChangeLabel(-3, suffix: " bpm vs April", higherIsBetter: false).text == "−3 bpm vs April")
     }
 
+    @Test func clockTime() {
+        // The formatter puts a narrow no-break space before AM/PM.
+        func text(_ time: ClockTime, _ locale: Locale) -> String {
+            Theme.clockTime(time, locale: locale).replacingOccurrences(of: "\u{202F}", with: " ")
+        }
+        #expect(text(.bedtime, en) == "11:30 PM")
+        #expect(text(.wakeTime, en) == "6:30 AM")
+        #expect(text(ClockTime(hour: 0, minute: 5), en) == "12:05 AM")
+        #expect(text(.bedtime, Locale(identifier: "en_GB")) == "23:30")
+    }
+
     @Test func scoreText() {
-        #expect(ScoreText.message(nil, nil) == "Not enough nights in this period for a score.")
-        let close = ScoreParts(timing: 0.95, consistency: 0.9, stages: 1, duration: 0.92)
-        #expect(ScoreText.message(88, close) == "Great sleep! Timing, schedule, stages and duration are all close to target.")
-        let short = ScoreParts(timing: 0.8, consistency: 0.7, stages: 0.9, duration: 0.4)
-        #expect(ScoreText.message(55, short) == "Fair sleep. More time asleep would help most (target 7.5 hours).")
-        let tie = ScoreParts(timing: 0.5, consistency: 0.5, stages: 0.9, duration: 0.9)
-        #expect(ScoreText.message(40, tie)
-                == "A rough stretch. Bed and wake times are furthest from target (11:30 PM and 6:30 AM).")
+        func message(_ score: Int?, _ parts: ScoreParts?, bedtime: ClockTime = .bedtime,
+                     wakeTime: ClockTime = .wakeTime) -> String {
+            ScoreText.message(score, parts, bedtime: bedtime, wakeTime: wakeTime, locale: en)
+                .replacingOccurrences(of: "\u{202F}", with: " ")
+        }
+        #expect(message(nil, nil) == "Not enough nights in this period for a score.")
+        let close = ScoreParts(timing: 0.95, consistency: 0.9, stages: 1, duration: 0.92, awakenings: 0.9)
+        #expect(message(88, close)
+                == "Great sleep! Timing, schedule, stages, duration and awakenings are all close to target.")
+        let noStages = ScoreParts(timing: 0.95, consistency: 0.9, stages: 1, duration: 0.92, awakenings: nil)
+        #expect(message(88, noStages) == "Great sleep! Timing, schedule, stages and duration are all close to target.")
+        let short = ScoreParts(timing: 0.8, consistency: 0.7, stages: 0.9, duration: 0.4, awakenings: 1)
+        #expect(message(55, short) == "Fair sleep. More time asleep would help most (target 7.5 hours).")
+        let broken = ScoreParts(timing: 0.9, consistency: 0.9, stages: 0.9, duration: 0.9, awakenings: 0.5)
+        #expect(message(72, broken) == "Good sleep. Waking less often in the night would help most.")
+        let tie = ScoreParts(timing: 0.5, consistency: 0.5, stages: 0.9, duration: 0.9, awakenings: 0.5)
+        #expect(message(40, tie)
+                == "A rough stretch. Bed and wake times are furthest from your targets (11:30 PM and 6:30 AM).")
+        #expect(message(40, tie, bedtime: ClockTime(hour: 22, minute: 0), wakeTime: ClockTime(hour: 6, minute: 0))
+                == "A rough stretch. Bed and wake times are furthest from your targets (10:00 PM and 6:00 AM).")
     }
 
     @MainActor @Test func chartCaptions() throws {
@@ -106,5 +129,18 @@ struct FormatTests {
         #expect(WorkoutsChart.caption(d.workouts, calendar: mondayFirst) == "6 sessions · last 9 weeks")
         #expect(CaloriesChart.caption(d.calories) == "avg 390 kcal")
         #expect(CaloriesChart.caption([]) == nil)
+
+        let night = try #require(d.hypnogram)
+        #expect(HypnogramChart.caption(night) == "asleep · \(Theme.duration(minutes: 480)) total · 0 awakenings")
+        var o = try Sample.object()
+        var h = try #require(o["hypnogram"] as? [String: Any])
+        h["awakenings"] = 1
+        o["hypnogram"] = h
+        #expect(try HypnogramChart.caption(#require(Sample.decode(o).hypnogram)).hasSuffix(" · 1 awakening"))
+        h["awakenings"] = NSNull()
+        o["hypnogram"] = h
+        let plain = try #require(Sample.decode(o).hypnogram)
+        #expect(HypnogramChart.caption(plain) == "asleep · \(Theme.duration(minutes: 480)) total")
+        #expect(HypnogramChart.spokenCaption(plain) == "\(Theme.spokenDuration(minutes: 480)) in bed")
     }
 }

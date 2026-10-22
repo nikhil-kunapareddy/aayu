@@ -5,6 +5,8 @@ import SwiftUI
 struct ScorePanel: View {
     let d: Dashboard
     @Environment(\.layoutClass) private var layout
+    @AppStorage(Pref.bedtime) private var bedtime = ClockTime.bedtime
+    @AppStorage(Pref.wakeTime) private var wakeTime = ClockTime.wakeTime
 
     var body: some View {
         Group {
@@ -37,23 +39,26 @@ struct ScorePanel: View {
             .frame(width: layout == .narrow ? 112 : 124, height: layout == .narrow ? 112 : 124)
             .help(String(localized: """
                 Your sleep score for the 14 nights up to \(d.window.end.formatted(.dateTime.month(.wide).day())), \
-                from bed and wake timing, schedule consistency, sleep stages and time asleep.
+                from bed and wake timing, schedule consistency, sleep stages, time asleep and awakenings.
                 """))
     }
 
     /// "Sleep Score", the change pill, and what the score's parts say.
     private var story: some View {
         VStack(alignment: .leading, spacing: 8) {
-            Text("Sleep Score")
-                .font(Theme.title2)
-                .foregroundStyle(Theme.headerInk)
-                .accessibilityAddTraits(.isHeader)
+            HStack(spacing: 8) {
+                Text("Sleep Score")
+                    .font(Theme.title2)
+                    .foregroundStyle(Theme.headerInk)
+                    .accessibilityAddTraits(.isHeader)
+                ScoreInfoButton(parts: d.kpis.sleepScoreParts)
+            }
             if let change = d.kpis.sleepScoreChange {
                 ScorePill(change: ChangeLabel(Double(change), higherIsBetter: true, surface: .header) {
                     String(localized: "\($0) vs the 14 nights before")
                 })
             }
-            Text(ScoreText.message(d.kpis.sleepScore, d.kpis.sleepScoreParts))
+            Text(ScoreText.message(d.kpis.sleepScore, d.kpis.sleepScoreParts, bedtime: bedtime, wakeTime: wakeTime))
                 .font(Theme.body)
                 .foregroundStyle(Theme.headerInk.opacity(0.75))
                 .lineSpacing(2)

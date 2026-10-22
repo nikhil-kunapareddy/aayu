@@ -1,3 +1,4 @@
+import datetime
 import io
 import json
 import os
@@ -10,7 +11,7 @@ from pathlib import Path
 import numpy as np
 import pytest
 
-from aayu_backend import data, server
+from aayu_backend import data, series, server
 from aayu_backend.server import Server
 from tests.conftest import write_csv
 
@@ -62,6 +63,15 @@ def test_open_then_dashboard(client, export):
     assert client.call("watch", enabled=True) == {"id": client.next_id, "result": None}
 
 
+def test_dashboard_scores_against_the_targets(client, export):
+    client.call("open", folder=str(export))
+    default = client.call("dashboard")["result"]["kpis"]
+    assert client.call("dashboard", bedtime="23:30", wake_time="06:30")["result"]["kpis"] == default
+    assert series.SleepTargets(datetime.time(23, 30), datetime.time(6, 30)) == series.DEFAULT_TARGETS
+    late = client.call("dashboard", bedtime="03:00", wake_time="11:00")["result"]["kpis"]
+    assert late["sleep_score_parts"]["timing"] < default["sleep_score_parts"]["timing"]
+
+
 @pytest.mark.parametrize("method", ["_load", "handle", "__init__", "poll_once", "watch_loop", "_read", "nope"])
 def test_only_protocol_methods_are_callable(client, method):
     reply = client.call(method)
@@ -85,6 +95,10 @@ def test_only_protocol_methods_are_callable(client, method):
     ('{"id": 1, "method": "dashboard", "params": {"units": "stone"}}', "bad_params"),
     ('{"id": 1, "method": "dashboard", "params": {"default_range": "year"}}', "bad_params"),
     ('{"id": 1, "method": "dashboard", "params": {"night": 20260501}}', "bad_params"),
+    ('{"id": 1, "method": "dashboard", "params": {"bedtime": "11:30 PM"}}', "bad_params"),
+    ('{"id": 1, "method": "dashboard", "params": {"bedtime": "24:00"}}', "bad_params"),
+    ('{"id": 1, "method": "dashboard", "params": {"wake_time": "6:30"}}', "bad_params"),
+    ('{"id": 1, "method": "dashboard", "params": {"wake_time": 630}}', "bad_params"),
 ])
 def test_bad_requests_get_one_error_line(client, line, code):
     reply = client.raw(line)

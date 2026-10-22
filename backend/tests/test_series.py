@@ -1,5 +1,6 @@
 import json
 import logging
+from datetime import time
 
 import pandas as pd
 import pytest
@@ -110,6 +111,16 @@ def test_fall_back_night_has_no_overlapping_segments(tmp_path):
     assert h["asleep"] == 480 and h["duration"] == 480
 
 
+def test_awakenings_are_breaks_between_sleep(tmp_path):
+    # Leading and trailing Awake don't count; a gap inside an Awake run or between sleep doesn't split or add one.
+    stages = [("WAKE", 5), ("LIGHT", 60), ("WAKE", 3), ("DEEP", 60), ("WAKE", 1), ("GAP", 5), ("WAKE", 2),
+              ("REM", 30), ("LIGHT", 20), ("GAP", 10), ("LIGHT", 20), ("WAKE", 10)]
+    assert _hyp(tmp_path, [make_night("2026-05-02", BED, WAKE, stages)])["awakenings"] == 2
+    awake_only = make_night("2026-05-02", BED, WAKE, [("WAKE", 30)], deepSleepTime=60)
+    assert _hyp(tmp_path / "b", [awake_only])["awakenings"] is None
+    assert _hyp(tmp_path / "c", [make_night("2026-05-02", BED, WAKE, deepSleepTime=60)])["awakenings"] is None
+
+
 def test_nights_without_times_are_skipped(tmp_path):
     nights = [make_night("2026-05-02", BED, WAKE, [("DEEP", 60)]),
               make_night("2026-05-03", "2026-05-02 23:00", "2026-05-03 07:00", start="", deepSleepTime=60)]
@@ -142,12 +153,43 @@ def _load(tmp_path, nights):
 
 def test_fourteen_on_target_nights_score_100(tmp_path):
     parts = series.sleep_score_parts(_load(tmp_path, _nights(_days("2026-05-01", 14))))
-    assert parts == {"score": 100, "timing": 1.0, "consistency": 1.0, "stages": 1.0, "duration": 1.0}
+    assert parts == {"score": 100, "timing": 1.0, "consistency": 1.0, "stages": 1.0, "duration": 1.0,
+                     "awakenings": None}
 
 
 def test_late_bedtime_fades_timing(tmp_path):
     parts = series.sleep_score_parts(_load(tmp_path, _nights(_days("2026-05-01", 14), bed="00:30")))
-    assert parts["timing"] == 0.8 and parts["score"] == 94
+    assert parts["timing"] == 0.8 and parts["score"] == 93   # no stage minutes: the other four, reweighted
+
+
+def test_timing_aims_for_the_targets(tmp_path):
+    d = _load(tmp_path, _nights(_days("2026-05-01", 14), bed="00:30", wake="07:30"))
+    late = series.SleepTargets(time(0, 30), time(7, 30))
+    assert series.sleep_score_parts(d, targets=late)["timing"] == 1.0
+    assert series.sleep_score_parts(d)["timing"] == 0.6
+
+
+@pytest.mark.parametrize(("t", "hours"), [(time(23, 30), -0.5), (time(6, 30), 6.5), (time(0, 0), 0.0),
+                                          (time(13, 59), 13 + 59 / 60), (time(14, 0), -10.0)])
+def test_clock_time_is_night_centred(t, hours):
+    assert series._clock_time(t) == pytest.approx(hours)
+
+
+def _broken(days, awakenings):
+    """On-target nights (as `_nights` makes them) whose stage minutes break `awakenings` times."""
+    return [make_night(day, f"{T(day) - pd.Timedelta(days=1):%Y-%m-%d} 23:30", f"{day} 06:30",
+                       [("LIGHT", 30), ("WAKE", 1)] * awakenings + [("LIGHT", 30)], **IDEAL) for day in days]
+
+
+@pytest.mark.parametrize(("awakenings", "part", "score"), [(2, 1.0, 100), (4, 0.5, 95), (6, 0.0, 90)])
+def test_awakenings_fade_from_two_to_six_a_night(tmp_path, awakenings, part, score):
+    parts = series.sleep_score_parts(_load(tmp_path, _broken(_days("2026-05-01", 14), awakenings)))
+    assert (parts["awakenings"], parts["score"]) == (part, score)
+
+
+def test_awakenings_average_only_nights_with_stage_minutes(tmp_path):
+    nights = _broken(_days("2026-05-01", 7), 4) + _nights(_days("2026-05-08", 7))
+    assert series.sleep_score_parts(_load(tmp_path, nights))["awakenings"] == 0.5
 
 
 def test_score_window_edges(tmp_path):
@@ -189,7 +231,16 @@ def test_kpi_changes_vs_previous_window(tmp_path):
     assert (k["avg_resting_hr"], k["avg_resting_hr_change"]) == (57, -3)
     assert (k["avg_sleep_h"], k["avg_sleep_h_change"]) == (7.9, 0.0)
     assert k["sleep_score"] == 100 and k["sleep_score_change"] == 0
-    assert k["sleep_score_parts"] == {"timing": 1.0, "consistency": 1.0, "stages": 1.0, "duration": 1.0}
+    assert k["sleep_score_parts"] == {"timing": 1.0, "consistency": 1.0, "stages": 1.0, "duration": 1.0,
+                                      "awakenings": None}
+
+
+def test_kpis_score_both_spans_against_the_targets(tmp_path):
+    folder = make_export(tmp_path, nights=_nights(_days("2026-04-01", 30) + _days("2026-05-01", 31), bed="22:00"))
+    early = series.SleepTargets(time(22, 0), time(6, 30))
+    k = series.kpis(data.load(str(folder)), Window.for_month("2026-05"), "lbs", early)
+    assert k["sleep_score"] == 100 and k["sleep_score_change"] == 0
+    assert series.kpis(data.load(str(folder)), Window.for_month("2026-05"), "lbs")["sleep_score"] < 100
 
 
 def test_steps_change_none_without_previous(tmp_path):

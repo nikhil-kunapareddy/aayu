@@ -11,6 +11,8 @@ struct SettingsView: View {
     @AppStorage(Pref.defaultRange) private var defaultRange = DefaultRange.month
     @AppStorage(Pref.autoReload) private var autoReload = true
     @AppStorage(Pref.appearance) private var appearance = Appearance.light
+    @AppStorage(Pref.bedtime) private var bedtime = ClockTime.bedtime
+    @AppStorage(Pref.wakeTime) private var wakeTime = ClockTime.wakeTime
     @State private var status: FolderStatus?
     @State private var choosing = false
 
@@ -60,6 +62,15 @@ struct SettingsView: View {
                     Text("Last 30 days").tag(DefaultRange.last30)
                 }
             }
+            Section {
+                DatePicker("Target bedtime", selection: date($bedtime), displayedComponents: .hourAndMinute)
+                DatePicker("Target wake time", selection: date($wakeTime), displayedComponents: .hourAndMinute)
+            } header: {
+                Text("Sleep Score")
+            } footer: {
+                Text("The score’s timing compares your average bed and wake times with these.")
+                    .foregroundStyle(.secondary)
+            }
         }
         .formStyle(.grouped)
         // The dashboard's background, behind the form and the title bar.
@@ -72,6 +83,11 @@ struct SettingsView: View {
         .task(id: folder) {
             status = folder.isEmpty ? nil : await model.status(of: folder)
         }
+    }
+
+    /// A DatePicker's binding to a stored time of day.
+    private func date(_ time: Binding<ClockTime>) -> Binding<Date> {
+        Binding(get: { time.wrappedValue.date() }, set: { time.wrappedValue = ClockTime($0) })
     }
 
     /// The folder's icon as Finder shows it (a plain folder if it's gone).

@@ -68,7 +68,8 @@ JSON lines on its stdin/stdout. No network port.
 Request `{"id", "method", "params"}` → reply `{"id", "result"}` or
 `{"id", "error"}`; pushed `{"event": "reloaded"}` after auto-reload.
 Methods: `open(folder)`, `reload()`, `status(folder)`,
-`dashboard(selection, units, default_range, night)`, `watch(enabled)`.
+`dashboard(selection, units, default_range, night, bedtime, wake_time)`, `watch(enabled)`.
+`bedtime`/`wake_time` are the sleep score's targets, sent as 24-hour `"HH:MM"`.
 Keys are snake_case (Swift decodes with `.convertFromSnakeCase`); timestamps
 are naive local `YYYY-MM-DDTHH:MM:SS`, parsed in the Mac's timezone.
 
@@ -131,6 +132,10 @@ are naive local `YYYY-MM-DDTHH:MM:SS`, parsed in the Mac's timezone.
   minutes overlapping it, followed through gaps ≤ `series.NIGHT_GAP` (30 min).
   The watch often scores stages past SLEEP's recorded times; clipping to those
   times cut the chart off on most nights.
+- An awakening is a run of Awake minutes between a night's first and last
+  minute asleep (`series._awakenings`, from that night's `SLEEP_MINUTE`). With
+  no stage minutes in the 14 nights the score's awakenings part is `None` and
+  the other four parts are reweighted to sum to 100%.
 - Sleep times are shown in `series.TZ` (`America/New_York`, hardcoded).
 - The repo's `data/` is gitignored — it is real personal health data. Never
   commit it, never paste its contents into code, commits, or PRs, and never
