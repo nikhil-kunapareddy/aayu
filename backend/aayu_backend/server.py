@@ -15,10 +15,12 @@ process.
 """
 
 import contextlib
+import datetime
 import inspect
 import json
 import logging
 import os
+import re
 import sys
 import threading
 import time
@@ -103,6 +105,17 @@ def _choice[T: str](name: str, value: object, allowed: tuple[T, ...]) -> T:
     return value  # `value in allowed` narrows it to T
 
 
+_HH_MM: Final = re.compile(r"([01][0-9]|2[0-3]):([0-5][0-9])")
+
+
+def _clock_time(name: str, value: object) -> datetime.time:
+    """A time of day sent as 'HH:MM' (24-hour), e.g. '23:30'."""
+    match = _HH_MM.fullmatch(_str(name, value))
+    if match is None:
+        raise _bad(f"'{name}' must be a 24-hour time, HH:MM.")
+    return datetime.time(int(match[1]), int(match[2]))
+
+
 def _folder(value: object) -> str:
     folder = _str("folder", value)
     if not os.path.isabs(folder):
@@ -162,17 +175,21 @@ class Server:
         }
 
     def dashboard(self, selection: object = None, units: object = "lbs", default_range: object = "month",
-                  night: object = None) -> Dashboard:
-        """Everything the dashboard shows (see ``series.dashboard``)."""
+                  night: object = None, bedtime: object = "23:30", wake_time: object = "06:30") -> Dashboard:
+        """Everything the dashboard shows (see ``series.dashboard``).
+
+        The sleep score's timing aims for `bedtime` and `wake_time` ('HH:MM', 24-hour).
+        """
         checked_units: Units = _choice("units", units, UNITS)
         checked_range = _choice("default_range", default_range, DEFAULT_RANGES)
         checked_selection, checked_night = _optional_str("selection", selection), _optional_str("night", night)
+        targets = series.SleepTargets(_clock_time("bedtime", bedtime), _clock_time("wake_time", wake_time))
         d, error = self._data, self._error
         if d is None:
             if error is not None:
                 raise UserError(error.message, error.code)
             raise UserError("No folder is open.", Code.NO_FOLDER)
-        return series.dashboard(d, checked_selection, checked_units, checked_range, checked_night)
+        return series.dashboard(d, checked_selection, checked_units, checked_range, checked_night, targets)
 
     def watch(self, enabled: object) -> None:
         """Turn auto-reload on or off."""

@@ -68,7 +68,8 @@ JSON lines on its stdin/stdout. No network port.
 Request `{"id", "method", "params"}` → reply `{"id", "result"}` or
 `{"id", "error"}`; pushed `{"event": "reloaded"}` after auto-reload.
 Methods: `open(folder)`, `reload()`, `status(folder)`,
-`dashboard(selection, units, default_range, night)`, `watch(enabled)`.
+`dashboard(selection, units, default_range, night, bedtime, wake_time)`, `watch(enabled)`.
+`bedtime`/`wake_time` are the sleep score's targets, sent as 24-hour `"HH:MM"`.
 Keys are snake_case (Swift decodes with `.convertFromSnakeCase`); timestamps
 are naive local `YYYY-MM-DDTHH:MM:SS`, parsed in the Mac's timezone.
 

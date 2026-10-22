@@ -1,5 +1,6 @@
 import json
 import logging
+from datetime import time
 
 import pandas as pd
 import pytest
@@ -150,6 +151,19 @@ def test_late_bedtime_fades_timing(tmp_path):
     assert parts["timing"] == 0.8 and parts["score"] == 94
 
 
+def test_timing_aims_for_the_targets(tmp_path):
+    d = _load(tmp_path, _nights(_days("2026-05-01", 14), bed="00:30", wake="07:30"))
+    late = series.SleepTargets(time(0, 30), time(7, 30))
+    assert series.sleep_score_parts(d, targets=late)["timing"] == 1.0
+    assert series.sleep_score_parts(d)["timing"] == 0.6
+
+
+@pytest.mark.parametrize(("t", "hours"), [(time(23, 30), -0.5), (time(6, 30), 6.5), (time(0, 0), 0.0),
+                                          (time(13, 59), 13 + 59 / 60), (time(14, 0), -10.0)])
+def test_clock_time_is_night_centred(t, hours):
+    assert series._clock_time(t) == pytest.approx(hours)
+
+
 def test_score_window_edges(tmp_path):
     bad = {"deepSleepTime": 5, "REMTime": 5, "shallowSleepTime": 5, "wakeTime": 300}
     nights = _nights(["2026-04-30"], bed="21:00", **bad) + _nights(_days("2026-05-01", 14))
@@ -190,6 +204,14 @@ def test_kpi_changes_vs_previous_window(tmp_path):
     assert (k["avg_sleep_h"], k["avg_sleep_h_change"]) == (7.9, 0.0)
     assert k["sleep_score"] == 100 and k["sleep_score_change"] == 0
     assert k["sleep_score_parts"] == {"timing": 1.0, "consistency": 1.0, "stages": 1.0, "duration": 1.0}
+
+
+def test_kpis_score_both_spans_against_the_targets(tmp_path):
+    folder = make_export(tmp_path, nights=_nights(_days("2026-04-01", 30) + _days("2026-05-01", 31), bed="22:00"))
+    early = series.SleepTargets(time(22, 0), time(6, 30))
+    k = series.kpis(data.load(str(folder)), Window.for_month("2026-05"), "lbs", early)
+    assert k["sleep_score"] == 100 and k["sleep_score_change"] == 0
+    assert series.kpis(data.load(str(folder)), Window.for_month("2026-05"), "lbs")["sleep_score"] < 100
 
 
 def test_steps_change_none_without_previous(tmp_path):

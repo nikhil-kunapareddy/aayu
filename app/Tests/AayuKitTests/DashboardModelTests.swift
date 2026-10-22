@@ -24,7 +24,8 @@ struct DashboardModelTests {
         await model.start()   // only once
         #expect(await fake.methods == ["watch", "open", "dashboard"])
         #expect(await fake.dashboardRequests.first == DashboardRequest(selection: nil, units: .lbs,
-                                                                       defaultRange: .month, night: nil))
+                                                                       defaultRange: .month, night: nil,
+                                                                       bedtime: .bedtime, wakeTime: .wakeTime))
         #expect(model.dashboard?.selection == "2026-05")
     }
 
@@ -268,7 +269,19 @@ struct DashboardModelTests {
         defaults.set("/tmp/other", forKey: Pref.folder)
         await model.open()
         #expect(await fake.dashboardRequests.last == DashboardRequest(selection: nil, units: .lbs,
-                                                                      defaultRange: .month, night: nil))
+                                                                      defaultRange: .month, night: nil,
+                                                                      bedtime: .bedtime, wakeTime: .wakeTime))
+    }
+
+    @Test func refreshSendsTheSavedSleepTargets() async throws {
+        let fake = FakeBackend()
+        let defaults = try Sample.defaults()
+        defaults.set("00:15", forKey: Pref.bedtime)
+        defaults.set("not a time", forKey: Pref.wakeTime)   // unreadable → the default
+        let model = DashboardModel(backend: fake, defaults: defaults)
+        await model.open()
+        let request = try #require(await fake.dashboardRequests.last)
+        #expect(request.bedtime == ClockTime(hour: 0, minute: 15) && request.wakeTime == .wakeTime)
     }
 
     @Test func reloadedEventRefreshes() async throws {

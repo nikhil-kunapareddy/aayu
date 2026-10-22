@@ -43,6 +43,12 @@ extension Theme {
         return calendar
     }
 
+    /// A time of day as the user's locale writes it: "11:30 PM", or "23:30".
+    static func clockTime(_ time: ClockTime, locale: Locale = .autoupdatingCurrent) -> String {
+        time.date(timeZone: .gmt).formatted(Date.FormatStyle(locale: locale, calendar: gregorian(.gmt), timeZone: .gmt)
+            .hour().minute())
+    }
+
     // ── Numbers ──────────────────────────────────────────────────────────────
     /// 125 → "2h 5m".
     static func duration(minutes: Int) -> String {

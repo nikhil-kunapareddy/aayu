@@ -5,6 +5,8 @@ import SwiftUI
 struct ScorePanel: View {
     let d: Dashboard
     @Environment(\.layoutClass) private var layout
+    @AppStorage(Pref.bedtime) private var bedtime = ClockTime.bedtime
+    @AppStorage(Pref.wakeTime) private var wakeTime = ClockTime.wakeTime
 
     var body: some View {
         Group {
@@ -53,7 +55,7 @@ struct ScorePanel: View {
                     String(localized: "\($0) vs the 14 nights before")
                 })
             }
-            Text(ScoreText.message(d.kpis.sleepScore, d.kpis.sleepScoreParts))
+            Text(ScoreText.message(d.kpis.sleepScore, d.kpis.sleepScoreParts, bedtime: bedtime, wakeTime: wakeTime))
                 .font(Theme.body)
                 .foregroundStyle(Theme.headerInk.opacity(0.75))
                 .lineSpacing(2)

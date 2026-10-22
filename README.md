@@ -71,6 +71,7 @@ Settings (⌘,):
 | Appearance | System, Light or Dark. |
 | Weight units | lbs or kg, for the KPI and the weight chart. |
 | Open on | Start on the latest month or the last 30 days. |
+| Target bedtime / wake time | What the sleep score's timing aims for (default 11:30 PM and 6:30 AM). |
 
 ## How it's built
 

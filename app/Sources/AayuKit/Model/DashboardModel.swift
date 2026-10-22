@@ -70,6 +70,8 @@ final class DashboardModel {
     private var defaultRange: DefaultRange {
         defaults.string(forKey: Pref.defaultRange).flatMap(DefaultRange.init) ?? .month
     }
+    private var bedtime: ClockTime { defaults.string(forKey: Pref.bedtime).flatMap(ClockTime.init) ?? .bedtime }
+    private var wakeTime: ClockTime { defaults.string(forKey: Pref.wakeTime).flatMap(ClockTime.init) ?? .wakeTime }
 
     // ── Loading ──────────────────────────────────────────────────────────────
     /// Open the saved folder, once, when the window first appears.
@@ -122,7 +124,7 @@ final class DashboardModel {
         }
     }
 
-    /// Re-fetch the dashboard (new selection, units, or reloaded data). A
+    /// Re-fetch the dashboard (new selection, units, sleep targets, or reloaded data). A
     /// failure keeps the dashboard on screen, with the banner.
     func refresh() async {
         guard !folder.isEmpty else {
@@ -131,7 +133,8 @@ final class DashboardModel {
         }
         latest += 1
         let id = latest
-        let request = DashboardRequest(selection: selection, units: units, defaultRange: defaultRange, night: night)
+        let request = DashboardRequest(selection: selection, units: units, defaultRange: defaultRange, night: night,
+                                       bedtime: bedtime, wakeTime: wakeTime)
         do {
             let d = try await tracked { try await backend.call(request) }
             guard id == latest else {
