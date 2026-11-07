@@ -169,7 +169,9 @@ struct HypnogramChart: View {
                         }
                     }
                 } else {
-                    AxisValueLabel(format: .dateTime.hour(), anchor: .top)
+                    // "2 AM" on the hour, "2:30 AM" between.
+                    let onHour = value.as(Date.self).map { Calendar.current.component(.minute, from: $0) == 0 } ?? true
+                    AxisValueLabel(format: onHour ? .dateTime.hour() : .dateTime.hour().minute(), anchor: .top)
                         .font(Theme.micro.weight(.medium))
                         .foregroundStyle(Theme.sub)
                 }
@@ -181,8 +183,9 @@ struct HypnogramChart: View {
     /// The baseline's level, a little below the Deep band.
     private static let floor = -0.6
 
-    /// Bedtime to wake time, with a sliver either side so the edge rules and
-    /// band corners aren't clipped.
+    /// The night's first stage minute to its last (the backend trims the span to
+    /// them), so the bands run edge to edge, with a sliver either side so the
+    /// edge rules and band corners aren't clipped.
     private var domain: ClosedRange<Date> {
         let pad = night.end.timeIntervalSince(night.start) * 0.006
         return night.start.addingTimeInterval(-pad)...night.end.addingTimeInterval(pad)
@@ -203,22 +206,54 @@ struct HypnogramChart: View {
         }
     }
 
-    /// Bedtime, every second whole hour clear of the end chips, wake time.
     private var timeTicks: [Date] {
-        let cal = Calendar.current
-        let span = night.end.timeIntervalSince(night.start)
-        let clear = width > 0 ? span * 78 / width : 5400   // a chip and half an hour label, in seconds
-        guard var t = cal.nextDate(after: night.start, matching: DateComponents(minute: 0), matchingPolicy: .nextTime)
-        else { return [night.start, night.end] }
-        var ticks = [night.start]
-        while t < night.end {
-            let hour = cal.component(.hour, from: t)
-            if hour % 2 == 0, t.timeIntervalSince(night.start) > clear, night.end.timeIntervalSince(t) > clear {
+        Self.timeTicks(from: night.start, to: night.end, width: width)
+    }
+
+    /// Clock-time steps for the axis, in minutes, finest first.
+    nonisolated static let tickSteps = [15, 30, 60, 120, 180, 240]
+
+    /// The width assumed before the first layout pass reports the real one.
+    private nonisolated static let unmeasuredWidth: CGFloat = 600
+
+    /// Points a label needs: from the next tick, and from an end rule (a
+    /// time chip plus half a label). "2:30 AM" is wider than "2 AM".
+    private nonisolated static func room(step: Int) -> (between: CGFloat, end: CGFloat) {
+        step < 60 ? (76, 90) : (56, 80)
+    }
+
+    /// The finest step in `tickSteps` whose labels fit a night `span` seconds
+    /// long drawn `width` points wide, so a short night gets half hours and a
+    /// long one every two or three hours.
+    nonisolated static func tickStep(span: TimeInterval, width: CGFloat) -> Int {
+        let width = width > 0 ? width : unmeasuredWidth
+        return tickSteps.first { step in
+            Double(step * 60) / span * width >= room(step: step).between
+        } ?? tickSteps[tickSteps.count - 1]
+    }
+
+    /// Bedtime, the clock times at `tickStep` (whole multiples of it since
+    /// midnight) clear of the end chips, wake time.
+    nonisolated static func timeTicks(from start: Date, to end: Date, width: CGFloat,
+                                      calendar: Calendar = .current) -> [Date] {
+        let span = end.timeIntervalSince(start)
+        guard span > 0 else { return [start, end] }
+        let width = width > 0 ? width : unmeasuredWidth
+        let step = tickStep(span: span, width: width)
+        let clear = span * room(step: step).end / width   // in seconds
+        // Every quarter hour (local quarter hours line up with UTC's), kept on the step.
+        let quarter: TimeInterval = 15 * 60
+        var t = Date(timeIntervalSince1970: (start.timeIntervalSince1970 / quarter).rounded(.up) * quarter)
+        var ticks = [start]
+        while t < end {
+            let c = calendar.dateComponents([.hour, .minute], from: t)
+            if ((c.hour ?? 0) * 60 + (c.minute ?? 0)) % step == 0,
+               t.timeIntervalSince(start) > clear, end.timeIntervalSince(t) > clear {
                 ticks.append(t)
             }
-            t = t.addingTimeInterval(3600)
+            t += quarter
         }
-        ticks.append(night.end)
+        ticks.append(end)
         return ticks
     }
 

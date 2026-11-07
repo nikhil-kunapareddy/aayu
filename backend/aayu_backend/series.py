@@ -285,7 +285,9 @@ def hypnogram(d: Data, w: Window, night: str | None = None) -> Hypnogram | None:
     means the window's last night. The night's minutes are every run of
     SLEEP_MINUTE rows that overlaps bedtime–wake time, followed outward across
     gaps of up to NIGHT_GAP — the watch often keeps scoring stages past the
-    recorded times — and ``start``/``end`` widen to cover them. Consecutive
+    recorded times. ``start``/``end`` are the first and last of those minutes,
+    so the chart runs edge to edge: SLEEP's own times often reach hours past
+    them. With no stage minutes they fall back to SLEEP's times. Consecutive
     minutes in the same stage merge into one segment. ``nights`` lists every
     night in the window, for stepping.
     """
@@ -298,7 +300,7 @@ def hypnogram(d: Data, w: Window, night: str | None = None) -> Hypnogram | None:
 
     m = _night_minutes(d.sleep_minutes, start, stop)
     if not m.empty:
-        start, stop = min(start, m["ts"].iloc[0]), max(stop, m["ts"].iloc[-1] + MINUTE)
+        start, stop = m["ts"].iloc[0], m["ts"].iloc[-1] + MINUTE
     segments, totals = _segments(m)
     total = sum(totals.values())
     return {
