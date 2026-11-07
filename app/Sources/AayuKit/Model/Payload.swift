@@ -51,8 +51,8 @@ struct ScoreParts: Decodable, Sendable {
 struct Hypnogram: Decodable, Sendable {
     let night: String
     let nights: [String]
-    let start: Date   // bedtime, or the first stage minute if earlier
-    let end: Date     // wake time, or the end of the last stage minute if later
+    let start: Date   // the first stage minute (bedtime without any)
+    let end: Date     // the end of the last stage minute (wake time without any)
     let segments: [StageSpan]
     let totals: [StageShare]
     let asleep: Int     // minutes in a sleep stage

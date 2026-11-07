@@ -131,7 +131,11 @@ are naive local `YYYY-MM-DDTHH:MM:SS`, parsed in the Mac's timezone.
 - A Sleep Breakdown night spans bedtime → wake time **and** every run of stage
   minutes overlapping it, followed through gaps ≤ `series.NIGHT_GAP` (30 min).
   The watch often scores stages past SLEEP's recorded times; clipping to those
-  times cut the chart off on most nights.
+  times cut the chart off on most nights. The night's `start`/`end` are then the
+  first and last of those minutes (SLEEP's times only pick the runs; they often
+  reach hours past the stages and left the chart half empty), so the chart runs
+  edge to edge. Its x-axis ticks step 15 min → 4 h by night length and chart
+  width (`HypnogramChart.tickStep`).
 - An awakening is a run of Awake minutes between a night's first and last
   minute asleep (`series._awakenings`, from that night's `SLEEP_MINUTE`). With
   no stage minutes in the 14 nights the score's awakenings part is `None` and
@@ -171,5 +175,8 @@ are naive local `YYYY-MM-DDTHH:MM:SS`, parsed in the Mac's timezone.
   and `cacheDisplay` it, or `ImageRenderer` for pure-SwiftUI pieces.
   `cacheDisplay` shows faint edge lines on translucent capsules that the real
   window doesn't have.
+- **Statics on a `View` are `@MainActor`.** A pure helper called from a
+  nonisolated test traps at runtime (`dispatch_assert_queue`); mark it
+  `nonisolated` (see `HypnogramChart.timeTicks`).
 - **Swift Charts draws marks outside the x domain** (over the axis labels);
   filter or widen the domain (see `WorkoutsChart.visible(_:)`).

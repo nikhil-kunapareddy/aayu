@@ -58,6 +58,20 @@ def test_run_overlapping_night_is_included_and_widens(tmp_path):
     assert h["duration"] == 510 and h["asleep"] == 510
 
 
+def test_span_trims_to_stage_minutes_inside_sleep_times(tmp_path):
+    # SLEEP says 23:00–07:00 but the watch scored stages only 23:45–05:25.
+    h = _hyp(tmp_path, [make_night("2026-05-02", BED, WAKE, [("LIGHT", 60), ("DEEP", 280)],
+                                   first="2026-05-01 23:45")])
+    assert (h["start"], h["end"]) == ("2026-05-01T23:45:00", "2026-05-02T05:25:00")
+    assert h["duration"] == 340 and h["asleep"] == 340
+
+
+def test_span_without_stage_minutes_keeps_sleep_times(tmp_path):
+    h = _hyp(tmp_path, [make_night("2026-05-02", BED, WAKE, deepSleepTime=60)])
+    assert (h["start"], h["end"]) == ("2026-05-01T23:00:00", "2026-05-02T07:00:00")
+    assert h["segments"] == [] and h["duration"] == 480
+
+
 @pytest.mark.parametrize(("gap", "end"), [(30, "07:34"), (31, "07:00")])
 def test_gap_of_30_minutes_is_followed_31_is_not(tmp_path, gap, end):
     h = _hyp(tmp_path, [make_night("2026-05-02", BED, WAKE, [("DEEP", 480), ("GAP", gap), ("LIGHT", 5)])])
