@@ -11,6 +11,7 @@ struct DashboardView: View {
     @AppStorage(Pref.autoReload) private var autoReload = true
     @AppStorage(Pref.bedtime) private var bedtime = ClockTime.bedtime
     @AppStorage(Pref.wakeTime) private var wakeTime = ClockTime.wakeTime
+    @AppStorage(Pref.birthDate) private var birthDate = ""
     @State private var viewport: CGFloat = 0
 
     var body: some View {
@@ -24,6 +25,7 @@ struct DashboardView: View {
             .onChange(of: folder) { Task { await model.open() } }
             .onChange(of: units) { Task { await model.refresh() } }
             .onChange(of: [bedtime, wakeTime]) { Task { await model.refresh() } }
+            .onChange(of: birthDate) { Task { await model.refresh() } }
             .onChange(of: autoReload) { _, enabled in Task { await model.setAutoReload(enabled) } }
     }
 

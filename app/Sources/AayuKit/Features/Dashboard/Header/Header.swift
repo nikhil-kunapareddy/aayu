@@ -1,7 +1,7 @@
 import SwiftUI
 
 /// Greeting and subtitle, the month control and Settings button, and the
-/// Sleep Score panel, at the top of the window's gradient. The drag area runs
+/// Sleep Score and Bio Age panels, at the top of the window's gradient. The drag area runs
 /// edge to edge; the content lines up with the page's tiles (same inset, same width cap).
 struct Header: View {
     let d: Dashboard
@@ -38,7 +38,7 @@ struct Header: View {
                 .help("Settings (⌘,)")
                 .accessibilityLabel("Settings")
             }
-            ScorePanel(d: d)
+            HeaderPanels(d: d)
         }
         .padding(.horizontal, Theme.inset)
         .padding(.top, 40)       // below the traffic lights
@@ -47,6 +47,39 @@ struct Header: View {
         .frame(maxWidth: .infinity)
         .background(HeaderBackground(clear: true))   // the window's gradient shows through
         .measuringLayoutClass()
+    }
+}
+
+/// The Sleep Score and Bio Age panels: side by side when there's room (the
+/// score in its compact form below `roomy`), else stacked.
+struct HeaderPanels: View {
+    let d: Dashboard
+    @Environment(\.layoutClass) private var layout
+    @State private var width: CGFloat = 0
+
+    static let bioWidth: CGFloat = 320
+    static let roomy: CGFloat = 1240       // the score's full form fits beside Bio Age
+    static let sideBySide: CGFloat = 900   // its compact form does
+
+    var body: some View {
+        Group {
+            if width >= Self.sideBySide {
+                HStack(alignment: .top, spacing: Theme.gap) {
+                    ScorePanel(d: d)
+                        .environment(\.layoutClass, width >= Self.roomy ? layout : .narrow)
+                    BioAgePanel(d: d)
+                        .frame(width: Self.bioWidth)
+                }
+                .fixedSize(horizontal: false, vertical: true)   // both as tall as the taller one
+            } else {
+                VStack(spacing: Theme.gap) {
+                    ScorePanel(d: d)
+                    BioAgePanel(d: d)
+                }
+            }
+        }
+        .frame(maxWidth: .infinity)
+        .onGeometryChange(for: CGFloat.self) { $0.size.width } action: { width = $0 }
     }
 }
 

@@ -40,10 +40,11 @@ struct StatusRequest: BackendRequest {
     let folder: String
 }
 
-/// `dashboard(selection, units, default_range, night, bedtime, wake_time)`:
+/// `dashboard(selection, units, default_range, night, bedtime, wake_time, birth_date)`:
 /// everything the dashboard shows, with the sleep score timed against
-/// `bedtime` and `wakeTime`. A nil `selection` (the default range) or `night`
-/// (the window's last night) goes over as JSON null, never as a missing key.
+/// `bedtime` and `wakeTime` and the bio age counted from `birthDate`. A nil
+/// `selection` (the default range), `night` (the window's last night) or
+/// `birthDate` (the Zepp profile's) goes over as JSON null, never as a missing key.
 struct DashboardRequest: BackendRequest, Equatable {
     typealias Result = Dashboard
     static let method = "dashboard"
@@ -53,11 +54,13 @@ struct DashboardRequest: BackendRequest, Equatable {
     let night: String?
     let bedtime: ClockTime
     let wakeTime: ClockTime
+    let birthDate: CalendarDay?
 
     private enum CodingKeys: String, CodingKey {
         case selection, units, night, bedtime
         case defaultRange = "default_range"
         case wakeTime = "wake_time"
+        case birthDate = "birth_date"
     }
 
     // Written out because the synthesized version leaves nil keys out.
@@ -69,6 +72,7 @@ struct DashboardRequest: BackendRequest, Equatable {
         if let night { try params.encode(night, forKey: .night) } else { try params.encodeNil(forKey: .night) }
         try params.encode(bedtime, forKey: .bedtime)
         try params.encode(wakeTime, forKey: .wakeTime)
+        if let birthDate { try params.encode(birthDate, forKey: .birthDate) } else { try params.encodeNil(forKey: .birthDate) }
     }
 }
 

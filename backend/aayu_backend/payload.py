@@ -11,6 +11,8 @@ from typing import Literal, TypedDict
 
 Units = Literal["lbs", "kg"]
 DefaultRange = Literal["month", "last30"]
+BioMarkerKey = Literal["steps", "regularity", "bmi", "sleep", "resting_hr"]
+BirthSource = Literal["settings", "zepp"]
 
 UNITS: tuple[Units, ...] = ("lbs", "kg")
 DEFAULT_RANGES: tuple[DefaultRange, ...] = ("month", "last30")
@@ -118,6 +120,35 @@ class WeightPoint(TypedDict):
     marker: bool
 
 
+class BioMarker(TypedDict):
+    """One bio-age marker: its 90-day value and the years it adds (negative = younger).
+
+    ``value`` is steps a day, the Sleep Regularity Index (-100–100), BMI (kg/m²),
+    hours asleep a night or resting heart rate (bpm). Both are None without
+    enough data; ``years`` alone is None for a BMI below 18.5 (not modelled).
+    """
+
+    key: BioMarkerKey
+    value: float | None
+    years: float | None
+
+
+class BioAge(TypedDict):
+    """Bio age and pace of aging for the 90 days up to the window's last day (``bioage.bio_age``).
+
+    That day is the window's last day with data, at most: ``end``.
+    """
+
+    end: str                # the 90 days' last day (midnight)
+    age: float              # calendar age on that day
+    bio_age: float | None   # None with fewer than three markers scored
+    pace: float | None      # years of bio age per calendar year; None without ~3 months of points
+    markers: list[BioMarker]
+    birth_source: BirthSource
+    birth_date: str         # 'YYYY-MM-DD' the age counts from (mid-month for the Zepp profile's)
+    days: int
+
+
 class Dashboard(TypedDict):
     """Everything the dashboard shows (``series.dashboard``)."""
 
@@ -131,6 +162,7 @@ class Dashboard(TypedDict):
     workouts: Workouts
     calories: list[CalorieDay]
     weight: list[WeightPoint] | None
+    bio_age: BioAge | None   # None without a birth date (Settings or the Zepp profile)
 
 
 class FolderStatus(TypedDict):

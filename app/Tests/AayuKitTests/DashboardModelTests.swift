@@ -25,7 +25,8 @@ struct DashboardModelTests {
         #expect(await fake.methods == ["watch", "open", "dashboard"])
         #expect(await fake.dashboardRequests.first == DashboardRequest(selection: nil, units: .lbs,
                                                                        defaultRange: .month, night: nil,
-                                                                       bedtime: .bedtime, wakeTime: .wakeTime))
+                                                                       bedtime: .bedtime, wakeTime: .wakeTime,
+                                                                       birthDate: nil))
         #expect(model.dashboard?.selection == "2026-05")
     }
 
@@ -259,6 +260,18 @@ struct DashboardModelTests {
         #expect(model.chart == 0 && !model.chartForward)
     }
 
+    @Test func theBirthDateSettingIsSentAndABadOneIsLeftOut() async throws {
+        let fake = FakeBackend()
+        let defaults = try Sample.defaults()
+        defaults.set("1987-03-14", forKey: Pref.birthDate)
+        let model = DashboardModel(backend: fake, defaults: defaults)
+        await model.open()
+        #expect(await fake.dashboardRequests.last?.birthDate == CalendarDay(year: 1987, month: 3, day: 14))
+        defaults.set("03/14/1987", forKey: Pref.birthDate)
+        await model.refresh()
+        #expect(await fake.dashboardRequests.last?.birthDate == nil)
+    }
+
     @Test func aNewFolderStartsOnItsDefaultRange() async throws {
         let fake = FakeBackend()
         let defaults = try Sample.defaults()
@@ -270,7 +283,8 @@ struct DashboardModelTests {
         await model.open()
         #expect(await fake.dashboardRequests.last == DashboardRequest(selection: nil, units: .lbs,
                                                                       defaultRange: .month, night: nil,
-                                                                      bedtime: .bedtime, wakeTime: .wakeTime))
+                                                                      bedtime: .bedtime, wakeTime: .wakeTime,
+                                                                       birthDate: nil))
     }
 
     @Test func refreshSendsTheSavedSleepTargets() async throws {

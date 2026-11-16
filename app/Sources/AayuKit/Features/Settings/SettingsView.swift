@@ -13,6 +13,7 @@ struct SettingsView: View {
     @AppStorage(Pref.appearance) private var appearance = Appearance.light
     @AppStorage(Pref.bedtime) private var bedtime = ClockTime.bedtime
     @AppStorage(Pref.wakeTime) private var wakeTime = ClockTime.wakeTime
+    @AppStorage(Pref.birthDate) private var birthDate = ""
     @State private var status: FolderStatus?
     @State private var choosing = false
 
@@ -71,6 +72,27 @@ struct SettingsView: View {
                 Text("The score’s timing compares your average bed and wake times with these.")
                     .foregroundStyle(.secondary)
             }
+            Section {
+                LabeledContent("Date of birth") {
+                    if let day = CalendarDay(rawValue: birthDate) {
+                        HStack(spacing: 8) {
+                            DatePicker("Date of birth", selection: date(day), in: Self.birthRange,
+                                       displayedComponents: .date)
+                                .labelsHidden()
+                            Button("Clear") { birthDate = "" }
+                        }
+                    } else {
+                        Button("Set…") { birthDate = suggestedBirthDate.rawValue }
+                    }
+                }
+            } header: {
+                Text("Bio Age")
+            } footer: {
+                Text(birthDate.isEmpty
+                     ? "Not set: your bio age uses the birth month in your Zepp profile, if it has one."
+                     : "Your bio age counts from this date. It stays on this Mac.")
+                    .foregroundStyle(.secondary)
+            }
         }
         .formStyle(.grouped)
         // The dashboard's background, behind the form and the title bar.
@@ -83,6 +105,22 @@ struct SettingsView: View {
         .task(id: folder) {
             status = folder.isEmpty ? nil : await model.status(of: folder)
         }
+    }
+
+    /// A DatePicker's binding to the stored birth date.
+    private func date(_ day: CalendarDay) -> Binding<Date> {
+        Binding(get: { day.date() }, set: { birthDate = CalendarDay($0).rawValue })
+    }
+
+    /// Where "Set…" starts: the date the dashboard's bio age used (the Zepp profile's), else 1 January 1990.
+    private var suggestedBirthDate: CalendarDay {
+        model.dashboard?.bioAge.flatMap { CalendarDay(rawValue: $0.birthDate) }
+            ?? CalendarDay(year: 1990, month: 1, day: 1) ?? CalendarDay(Date.now)
+    }
+
+    /// 1 January 1900 to today.
+    private static var birthRange: ClosedRange<Date> {
+        (CalendarDay(year: 1900, month: 1, day: 1)?.date() ?? .distantPast)...Date.now
     }
 
     /// A DatePicker's binding to a stored time of day.

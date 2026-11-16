@@ -45,6 +45,13 @@ struct PayloadTests {
         #expect(d.workouts.weeks[0].week == (try utc("2026-05-18T00:00:00")))
         #expect(d.calories.map(\.marker) == [true, false, true])
         #expect(d.weight?.count == 2)
+
+        let bio = try #require(d.bioAge)
+        #expect(bio.end == (try utc("2026-05-31T00:00:00")))
+        #expect(bio.age == 30.0 && bio.bioAge == 28.6 && bio.pace == 0.85)
+        #expect(bio.markers.map(\.key) == ["steps", "regularity", "bmi", "sleep", "resting_hr"])
+        #expect(bio.markers[0].years == -1.9 && bio.markers[4].value == nil && bio.markers[4].years == nil)
+        #expect(bio.birthSource == "settings" && bio.birthDate == "1996-05-31" && bio.days == 90)
     }
 
     @Test func timestampsAreReadInTheGivenTimeZone() throws {
@@ -57,6 +64,7 @@ struct PayloadTests {
         var o = try Sample.object()
         o["weight"] = NSNull()
         o["hypnogram"] = NSNull()
+        o["bio_age"] = NSNull()
         var kpis = try #require(o["kpis"] as? [String: Any])
         for key in ["sleep_score", "sleep_score_change", "sleep_score_parts", "avg_steps", "weight", "weight_change"] {
             kpis[key] = NSNull()
@@ -65,6 +73,8 @@ struct PayloadTests {
         let d = try Sample.decode(o)
         #expect(d.weight == nil)
         #expect(d.hypnogram == nil)
+        #expect(d.bioAge == nil)
+        #expect(try Sample.decode(o.filter { $0.key != "bio_age" }).bioAge == nil)   // an older helper
         #expect(d.kpis.sleepScore == nil)
         #expect(d.kpis.sleepScoreParts == nil)
         #expect(d.kpis.weight == nil)

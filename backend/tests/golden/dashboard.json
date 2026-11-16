@@ -1,6 +1,7 @@
 {
  "body-only": {
   "default": {
+   "bio_age": null,
    "calories": [],
    "hypnogram": null,
    "kpis": {
@@ -95,6 +96,7 @@
  },
  "full": {
   "apr-gap-before-bed": {
+   "bio_age": null,
    "calories": [
     {
      "avg7": 263.0,
@@ -417,6 +419,7 @@
    }
   },
   "default": {
+   "bio_age": null,
    "calories": [
     {
      "avg7": 263.0,
@@ -734,6 +737,7 @@
    }
   },
   "feb-kg": {
+   "bio_age": null,
    "calories": [
     {
      "avg7": 247.0,
@@ -1153,6 +1157,7 @@
    }
   },
   "jan": {
+   "bio_age": null,
    "calories": [
     {
      "avg7": 150.0,
@@ -1583,6 +1588,7 @@
    }
   },
   "jan-plain-night": {
+   "bio_age": null,
    "calories": [
     {
      "avg7": 150.0,
@@ -1962,6 +1968,7 @@
    }
   },
   "last30": {
+   "bio_age": null,
    "calories": [
     {
      "avg7": 221.0,
@@ -2396,6 +2403,7 @@
    }
   },
   "last30-kg-night": {
+   "bio_age": null,
    "calories": [
     {
      "avg7": 221.0,
@@ -2840,6 +2848,7 @@
    }
   },
   "mar-dst": {
+   "bio_age": null,
    "calories": [
     {
      "avg7": 249.0,
@@ -3291,6 +3300,7 @@
    }
   },
   "mar-outside-night": {
+   "bio_age": null,
    "calories": [
     {
      "avg7": 249.0,
@@ -3747,6 +3757,7 @@
    }
   },
   "unknown-selection": {
+   "bio_age": null,
    "calories": [
     {
      "avg7": 221.0,
@@ -4183,6 +4194,7 @@
  },
  "sleep-activity": {
   "default": {
+   "bio_age": null,
    "calories": [
     {
      "avg7": 207.0,
@@ -4346,6 +4358,7 @@
    }
   },
   "last30-kg": {
+   "bio_age": null,
    "calories": [
     {
      "avg7": 207.0,

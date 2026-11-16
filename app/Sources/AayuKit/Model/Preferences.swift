@@ -10,12 +10,13 @@ enum Pref {
     static let appearance = "appearance"       // Appearance
     static let bedtime = "bedtime"             // ClockTime: the sleep score's target bedtime
     static let wakeTime = "wakeTime"           // ClockTime: …and wake time
+    static let birthDate = "birthDate"         // CalendarDay for the bio age; "" = not set (use the Zepp profile's)
 
     /// Registered at launch, so a fresh install reads these.
     static var defaults: [String: Any] {
         [folder: "", units: Units.lbs.rawValue, defaultRange: DefaultRange.month.rawValue, autoReload: true,
          appearance: Appearance.light.rawValue, bedtime: ClockTime.bedtime.rawValue,
-         wakeTime: ClockTime.wakeTime.rawValue]
+         wakeTime: ClockTime.wakeTime.rawValue, birthDate: ""]
     }
 }
 
@@ -73,5 +74,47 @@ struct ClockTime: RawRepresentable, Hashable, Codable, Sendable {
         var calendar = Calendar(identifier: .gregorian)
         calendar.timeZone = timeZone
         return calendar
+    }
+}
+
+/// A calendar day. The raw value, "YYYY-MM-DD", is what's stored and what the backend expects.
+struct CalendarDay: RawRepresentable, Hashable, Codable, Sendable {
+    let year: Int
+    let month: Int   // 1–12
+    let day: Int     // 1–31, a real day of that month
+
+    init?(year: Int, month: Int, day: Int) {
+        let calendar = Theme.gregorian(.gmt)
+        guard (1...9999).contains(year),
+              let date = calendar.date(from: DateComponents(year: year, month: month, day: day)) else { return nil }
+        let parts = calendar.dateComponents([.year, .month, .day], from: date)   // 2026-02-30 rolls into March
+        guard parts.year == year, parts.month == month, parts.day == day else { return nil }
+        self.year = year
+        self.month = month
+        self.day = day
+    }
+
+    init?(rawValue: String) {
+        let parts = rawValue.split(separator: "-", omittingEmptySubsequences: false)
+        guard parts.count == 3, zip(parts, [4, 2, 2]).allSatisfy({ part, length in
+                  part.count == length && part.allSatisfy { ("0"..."9").contains($0) }
+              }),
+              let year = Int(parts[0]), let month = Int(parts[1]), let day = Int(parts[2]) else { return nil }
+        self.init(year: year, month: month, day: day)
+    }
+
+    var rawValue: String { String(format: "%04d-%02d-%02d", year, month, day) }
+
+    /// The day `date` falls on in `timeZone` (for a DatePicker).
+    init(_ date: Date, timeZone: TimeZone = .autoupdatingCurrent) {
+        let parts = Theme.gregorian(timeZone).dateComponents([.year, .month, .day], from: date)
+        self.year = parts.year ?? 2000
+        self.month = parts.month ?? 1
+        self.day = parts.day ?? 1
+    }
+
+    /// Midnight starting this day in `timeZone` (for a DatePicker).
+    func date(timeZone: TimeZone = .autoupdatingCurrent) -> Date {
+        Theme.gregorian(timeZone).date(from: DateComponents(year: year, month: month, day: day)) ?? .distantPast
     }
 }
