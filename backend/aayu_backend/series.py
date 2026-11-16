@@ -13,10 +13,11 @@ import logging
 import math
 from collections.abc import Callable
 from dataclasses import dataclass
-from datetime import time
+from datetime import date, time
 
 import pandas as pd
 
+from aayu_backend import bioage
 from aayu_backend.data import Data
 from aayu_backend.errors import Code, UserError, log_failure
 from aayu_backend.payload import (
@@ -463,12 +464,14 @@ def _section[T](name: str, compute: Callable[[], T], fallback: T) -> T:
 
 # ── The whole dashboard ──────────────────────────────────────────────────────────
 def dashboard(d: Data, selection: str | None, units: Units, default_range: str,
-              night: str | None = None, targets: SleepTargets = DEFAULT_TARGETS) -> Dashboard:
+              night: str | None = None, targets: SleepTargets = DEFAULT_TARGETS,
+              born: date | None = None) -> Dashboard:
     """Everything the dashboard shows, for a month ('YYYY-MM') or 'last30'.
 
     An unknown or missing `selection` falls back to `default_range`: the latest
     month, or 'last30'. `night` picks the Sleep Breakdown night (see hypnogram);
-    `targets` are the bed and wake times the sleep score aims for.
+    `targets` are the bed and wake times the sleep score aims for; `born` is the
+    birth date for the bio age (None: the Zepp profile's birth month, if any).
     A section that fails is logged and sent empty (``[]``, or null where the
     app allows it) rather than failing the whole dashboard.
     """
@@ -493,4 +496,5 @@ def dashboard(d: Data, selection: str | None, units: Units, default_range: str,
         "workouts": _section("workouts", lambda: workouts(d, w), no_workouts),
         "calories": _section("calories", lambda: calories(d, w), []),
         "weight": None if d.body.empty else _section("weight", lambda: weight(d, w, units), None),
+        "bio_age": _section("bio_age", lambda: bioage.bio_age(d, min(w.end, latest), born), None),
     }

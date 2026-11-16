@@ -62,5 +62,21 @@
   "weight": [
     {"date": "2026-05-02T00:00:00", "value": 151.5, "marker": true},
     {"date": "2026-05-30T00:00:00", "value": 150.0, "marker": false}
-  ]
+  ],
+  "bio_age": {
+    "end": "2026-05-31T00:00:00",
+    "age": 30.0,
+    "bio_age": 28.6,
+    "pace": 0.85,
+    "markers": [
+      {"key": "steps", "value": 8000.0, "years": -1.9},
+      {"key": "regularity", "value": 85.0, "years": -1.0},
+      {"key": "bmi", "value": 26.0, "years": 0.6},
+      {"key": "sleep", "value": 7.2, "years": 0.0},
+      {"key": "resting_hr", "value": null, "years": null}
+    ],
+    "birth_source": "settings",
+    "birth_date": "1996-05-31",
+    "days": 90
+  }
 }

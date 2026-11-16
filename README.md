@@ -18,7 +18,9 @@ app (Amazfit devices). Point it at your Zepp export folder and it charts your
 sleep, workouts, calories and weight.
 
 One window: a greeting and month menu (‹ ›, ⌘← ⌘→, plus **Last 30 days**),
-your **sleep score** with the month's sleep-stage mix, tiles for steps, sleep,
+your **sleep score** with the month's sleep-stage mix, a **bio age** and pace of
+aging estimated from your steps, sleep, sleep regularity, BMI and resting heart
+rate (with what each one adds, and the studies behind it), tiles for steps, sleep,
 resting heart rate and weight (each compared with the month before), and one
 large chart at a time — a night-by-night **Sleep Breakdown** (hypnogram),
 **Workout Sessions**, **Calories Burned** and **Weight Trend** — with hover
@@ -72,6 +74,7 @@ Settings (⌘,):
 | Weight units | lbs or kg, for the KPI and the weight chart. |
 | Open on | Start on the latest month or the last 30 days. |
 | Target bedtime / wake time | What the sleep score's timing aims for (default 11:30 PM and 6:30 AM). |
+| Date of birth | What the bio age counts from. Not set: the birth month in your Zepp profile, if any. |
 
 ## How it's built
 
@@ -90,6 +93,7 @@ backend/
   aayu_backend/             # Python backend
     data.py                 #   CSV loading, cleaning, KPI values
     series.py               #   the numbers behind each chart
+    bioage.py               #   bio age and pace of aging (sources in its docstring)
     server.py               #   JSON-lines protocol + folder watcher
   tests/                    #   pytest, on synthetic fixtures (+ a golden snapshot)
   pyproject.toml, uv.lock   #   pinned dependencies

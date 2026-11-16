@@ -6,7 +6,8 @@ Silicon**. Wearable data exported from the **Zepp** app (Amazfit devices) is
 loaded and crunched by a **Python backend** (pandas) and drawn by a **SwiftUI
 front end** with **Swift Charts**. The user picks the Zepp export folder in
 Settings. Look (from a dashboard mock-up the user supplied): a header —
-greeting, month control, a frosted Sleep Score panel (ring + stage mix) — over
+greeting, month control, a frosted Sleep Score panel (ring + stage mix) with a
+Bio Age panel beside it (stacked in a narrow window) — over
 a page of KPI tiles and one chart card at a time (‹ › on its edges, dots
 below, ⌘[ ⌘]), all on one gradient with no seam under the header (white →
 pale periwinkle in Light, navy → violet in Dark); no title bar. The
@@ -47,6 +48,7 @@ JSON lines on its stdin/stdout. No network port.
 - `backend/aayu_backend/` — Python. NO UI code.
   - `data.py`    # CSV loading + cleaning → immutable `Data` (frames + KPIs)
   - `series.py`  # the numbers behind each chart + `dashboard()` payload
+  - `bioage.py`  # bio age + pace of aging from five markers (method and sources in its docstring)
   - `server.py`  # the JSON-lines protocol (`Server.METHODS`), folder watcher
   - `__main__.py`
   - `backend.spec` (PyInstaller), `pyproject.toml` + `uv.lock` (pinned deps), `tests/` (pytest, synthetic data)
@@ -68,8 +70,9 @@ JSON lines on its stdin/stdout. No network port.
 Request `{"id", "method", "params"}` → reply `{"id", "result"}` or
 `{"id", "error"}`; pushed `{"event": "reloaded"}` after auto-reload.
 Methods: `open(folder)`, `reload()`, `status(folder)`,
-`dashboard(selection, units, default_range, night, bedtime, wake_time)`, `watch(enabled)`.
-`bedtime`/`wake_time` are the sleep score's targets, sent as 24-hour `"HH:MM"`.
+`dashboard(selection, units, default_range, night, bedtime, wake_time, birth_date)`, `watch(enabled)`.
+`bedtime`/`wake_time` are the sleep score's targets, sent as 24-hour `"HH:MM"`;
+`birth_date` is `"YYYY-MM-DD"` or null (then the Zepp profile's birth month, mid-month).
 Keys are snake_case (Swift decodes with `.convertFromSnakeCase`); timestamps
 are naive local `YYYY-MM-DDTHH:MM:SS`, parsed in the Mac's timezone.
 
@@ -113,7 +116,12 @@ are naive local `YYYY-MM-DDTHH:MM:SS`, parsed in the Mac's timezone.
   (previous month / previous 30 days); weight's change is across the window.
   The sleep score covers the 14 nights up to the window's last night.
 - Don't show claims the data can't back (e.g. "top 10% for your age"); the
-  score message comes from the score's own parts (`ScoreText`).
+  score message comes from the score's own parts (`ScoreText`). The bio age is
+  a risk-equivalent age (each marker's published mortality risk ratio ÷ the
+  Gompertz slope, 0.085/yr, capped ±3 years); its popover (`BioAgeInfo`) shows
+  each marker's years, the method, its limits and the sources. Reference values
+  and caps in `bioage.py` are stated in `BioAgeInfo`/`BioMarkerText`: change them together.
+  It covers the 90 days up to the window's last day with data.
 - Settings are `@AppStorage` keys listed in `Pref`; they apply immediately (no
   Save button). The model reads them from `UserDefaults` when it calls the backend.
 - `series.py` was ported from the old Plotly chart code and verified to give
@@ -125,6 +133,9 @@ are naive local `YYYY-MM-DDTHH:MM:SS`, parsed in the Mac's timezone.
   `data.csv_path()` reads the **newest** CSV per folder (by mtime).
 - CSVs are read with `encoding="utf-8-sig"` (Zepp exports carry a BOM).
 - A missing metric yields an empty frame; KPIs become `None`, shown as "—".
+- `USER/` (the Zepp profile) is read only for its `birthday` month; it isn't a
+  metric (not in `METRICS` or the Settings count). `BODY`'s `height`/`bmi`
+  columns are optional (`data._OPTIONAL`): BMI is the scale's, else weight ÷ height².
 - `SLEEP_MINUTE` (one row per minute: date, time, DEEP/LIGHT/REM/WAKE) is in
   the watch's local time, while `SLEEP` start/stop are UTC — `series._local`
   converts the latter (via `TZ`) to match before slicing a night.
@@ -178,5 +189,10 @@ are naive local `YYYY-MM-DDTHH:MM:SS`, parsed in the Mac's timezone.
 - **Statics on a `View` are `@MainActor`.** A pure helper called from a
   nonisolated test traps at runtime (`dispatch_assert_queue`); mark it
   `nonisolated` (see `HypnogramChart.timeTicks`).
+- **The macOS 27 SDK in the Command Line Tools has no SwiftUI macro plugin**
+  (`'SwiftUIMacros.StateMacro' could not be found`). Build and test against the
+  26.5 SDK: `SDKROOT=/Library/Developer/CommandLineTools/SDKs/MacOSX26.5.sdk make test`.
+  Swift Testing's plugin also fails at random ("plugin for module 'TestingMacros'
+  not found"); `swift test -j 1` and a retry get past it. CI (full Xcode) has neither problem.
 - **Swift Charts draws marks outside the x domain** (over the axis labels);
   filter or widen the domain (see `WorkoutsChart.visible(_:)`).

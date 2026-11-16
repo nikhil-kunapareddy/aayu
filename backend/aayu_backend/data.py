@@ -17,6 +17,7 @@ an ``ExportError`` naming the columns.
 
 import logging
 import os
+import re
 import time
 from collections.abc import Callable
 from dataclasses import dataclass
@@ -37,9 +38,18 @@ _COLUMNS: dict[str, list[str]] = {
 }
 METRICS = tuple(_COLUMNS)
 
+# Columns read when a metric's CSV has them; an export without them still loads.
+_OPTIONAL: dict[str, list[str]] = {
+    "BODY": ["height", "bmi"],
+}
+
 # Columns read as numbers; anything else in them becomes NaN.
 _NUMERIC = frozenset({"deepSleepTime", "shallowSleepTime", "wakeTime", "REMTime",
-                      "steps", "calories", "weight", "type", "heartRate"})
+                      "steps", "calories", "weight", "type", "heartRate", "height", "bmi"})
+
+# The Zepp profile (USER/): only its birth month is read, for the bio age.
+PROFILE = "USER"
+_BIRTH_MONTH = re.compile(r"(19|20)\d\d-(0[1-9]|1[0-2])")
 
 SPORT_NAMES = {1: "Running", 6: "Outdoor Walk", 8: "Running", 52: "Strength", 54: "Indoor Walk"}
 OTHER_SPORT = "Other"
@@ -107,11 +117,12 @@ def found_metrics(folder: str) -> list[str]:
 def _read(folder: str, metric: str) -> pd.DataFrame:
     """Read a metric's CSV (Zepp exports carry a BOM), or an empty frame if absent."""
     columns = _COLUMNS[metric]
+    wanted = {*columns, *_OPTIONAL.get(metric, [])}
     path = csv_path(folder, metric)
     if path is None:
         return pd.DataFrame({c: pd.Series(dtype="float64") for c in columns})
     try:
-        df = pd.read_csv(path, encoding="utf-8-sig", usecols=lambda c: c in columns)
+        df = pd.read_csv(path, encoding="utf-8-sig", usecols=lambda c: c in wanted)
     except UnicodeDecodeError as e:
         raise ExportError(metric, "the CSV isn't UTF-8 text") from e
     except pd.errors.EmptyDataError as e:
@@ -160,10 +171,18 @@ def _clean_activity(activity: pd.DataFrame) -> pd.DataFrame:
 
 
 def _clean_body(body: pd.DataFrame) -> pd.DataFrame:
-    """Weigh-ins above 0, oldest first; ``date`` is the UTC time, made naive."""
+    """Weigh-ins above 0, oldest first; ``date`` is the UTC time, made naive.
+
+    ``bmi`` is the scale's BMI, else weight / height² when the row has a height
+    (cm), else NaN.
+    """
     body["date"] = _utc(body["time"]).dt.tz_localize(None)
     keep = body["date"].notna() & body["weight"].notna() & (body["weight"] > 0)
-    return body[keep].sort_values("date", kind="stable")
+    body = body[keep].sort_values("date", kind="stable")
+    nan = pd.Series(float("nan"), index=body.index)
+    height = body["height"].where(body["height"] > 0) if "height" in body else nan
+    scale = body["bmi"].where(body["bmi"] > 0) if "bmi" in body else nan
+    return body.assign(bmi=scale.fillna(body["weight"] / (height / 100) ** 2))
 
 
 def _clean_sport(sport: pd.DataFrame) -> pd.DataFrame:
@@ -214,10 +233,11 @@ class Data:
     folder: str
     sleep: pd.DataFrame           # date, stage minutes, start/stop (UTC), totalHours
     activity: pd.DataFrame        # date, steps, calories
-    body: pd.DataFrame            # date (naive UTC), weight in kg — oldest first
+    body: pd.DataFrame            # date (naive UTC), weight in kg, bmi (NaN without a height) — oldest first
     sport: pd.DataFrame           # date (naive UTC day), type, sportName
     resting_hr: pd.DataFrame      # date, hr — per-day 5th-percentile heart rate
     sleep_minutes: pd.DataFrame   # ts (naive local time), stage — one row per minute asleep
+    birth_month: str | None = None  # 'YYYY-MM' from the Zepp profile, if it has one
 
     # ── Date coverage ────────────────────────────────────────────────────────
     def months(self) -> list[str]:
@@ -229,6 +249,24 @@ class Data:
         """The last day with sleep, activity or body data (midnight)."""
         ends = [pd.Timestamp(f["date"].max()) for f in (self.sleep, self.activity, self.body) if not f.empty]
         return max(ends).normalize() if ends else None
+
+
+def birth_month(folder: str) -> str | None:
+    """The birth month ('YYYY-MM') in the Zepp profile (``USER/``), or None.
+
+    Never raises: a missing, unreadable or odd profile just means no birth month.
+    """
+    path = csv_path(folder, PROFILE)
+    if path is None:
+        return None
+    try:
+        df = pd.read_csv(path, encoding="utf-8-sig", usecols=lambda c: c == "birthday", dtype=str, nrows=1)
+    except (OSError, UnicodeDecodeError, ValueError):
+        return None
+    if df.empty or "birthday" not in df:
+        return None
+    match = _BIRTH_MONTH.match(str(df["birthday"].iloc[0]).strip())
+    return match[0] if match else None
 
 
 def load(folder: str) -> Data:
@@ -248,4 +286,4 @@ def load(folder: str) -> Data:
         counts.append(f"{metric} {len(raw)}→{len(frames[metric])}")
     log.info("loaded export in %.0f ms (rows read→kept: %s)", (time.perf_counter() - began) * 1000, ", ".join(counts))
     return Data(folder, frames["SLEEP"], frames["ACTIVITY"], frames["BODY"], frames["SPORT"],
-                frames["HEARTRATE_AUTO"], frames["SLEEP_MINUTE"])
+                frames["HEARTRATE_AUTO"], frames["SLEEP_MINUTE"], birth_month(folder))

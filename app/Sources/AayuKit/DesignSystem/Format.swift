@@ -97,6 +97,13 @@ extension Theme {
         return (value * scale).rounded(.toNearestOrEven) / scale
     }
 
+    /// 1.234 → "1.2×", −1 → "−1.0×": a pace of aging.
+    static func pace(_ value: Double, locale: Locale = .autoupdatingCurrent) -> String {
+        let shown = rounded(value, decimals: 1)
+        let magnitude = abs(shown).formatted(.number.precision(.fractionLength(1)).locale(locale))
+        return (shown < 0 ? "−" : "") + magnitude + "×"
+    }
+
     /// "+0.6", "−3", "±0" — signed, with a real minus sign. The sign is the
     /// rounded value's, so −0.04 at one decimal is "±0.0", not "−0.0".
     static func signed(_ value: Double, decimals: Int = 0, locale: Locale = .autoupdatingCurrent) -> String {

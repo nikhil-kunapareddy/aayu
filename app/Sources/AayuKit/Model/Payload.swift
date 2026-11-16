@@ -14,6 +14,7 @@ struct Dashboard: Decodable, Sendable {
     let workouts: Workouts
     let calories: [CalorieDay]
     let weight: [WeightPoint]?   // nil when the export has no body data
+    let bioAge: BioAge?          // nil without a birth date (Settings or the Zepp profile)
 }
 
 struct DateWindow: Decodable, Sendable {
@@ -101,6 +102,27 @@ struct WeightPoint: Decodable, Sendable, Identifiable {
     let value: Double
     let marker: Bool
     var id: Date { date }
+}
+
+/// Bio age and pace of aging for the 90 days up to the window's last day
+/// (backend/aayu_backend/bioage.py). Each marker adds or takes off years.
+struct BioAge: Decodable, Sendable {
+    let end: Date             // the 90 days' last day: the window's last day with data
+    let age: Double           // calendar age on that day
+    let bioAge: Double?       // nil with fewer than three markers scored
+    let pace: Double?         // years of bio age per calendar year; nil without ~3 months of points
+    let markers: [BioMarker]  // steps, regularity, bmi, sleep, resting_hr
+    let birthSource: String   // "settings" or "zepp" (the profile's birth month, mid-month)
+    let birthDate: String     // 'YYYY-MM-DD' the age counts from
+    let days: Int             // 90
+}
+
+/// One marker: its value over the 90 days and the years it adds (negative = younger).
+struct BioMarker: Decodable, Sendable, Identifiable {
+    let key: String       // "steps", "regularity", "bmi", "sleep" or "resting_hr"
+    let value: Double?    // steps a day, Sleep Regularity Index, BMI, hours a night, bpm; nil without data
+    let years: Double?    // nil without data, or for a BMI below 18.5 (not modelled)
+    var id: String { key }
 }
 
 /// A folder's contents, for the Settings status line.

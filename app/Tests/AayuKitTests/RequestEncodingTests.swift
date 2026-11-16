@@ -10,22 +10,37 @@ struct RequestEncodingTests {
         try #require(String(data: Backend.line(for: request, id: id), encoding: .utf8))
     }
 
-    @Test func dashboardSendsNullsForMissingSelectionAndNight() throws {
+    @Test func dashboardSendsNullsForMissingSelectionNightAndBirthDate() throws {
         let request = DashboardRequest(selection: nil, units: .lbs, defaultRange: .month, night: nil,
-                                       bedtime: .bedtime, wakeTime: .wakeTime)
+                                       bedtime: .bedtime, wakeTime: .wakeTime, birthDate: nil)
         #expect(try line(request, id: 7) == """
-            {"id":7,"method":"dashboard","params":{"bedtime":"23:30","default_range":"month","night":null,\
-            "selection":null,"units":"lbs","wake_time":"06:30"}}\n
+            {"id":7,"method":"dashboard","params":{"bedtime":"23:30","birth_date":null,"default_range":"month",\
+            "night":null,"selection":null,"units":"lbs","wake_time":"06:30"}}\n
             """)
     }
 
     @Test func dashboardWithValues() throws {
         let request = DashboardRequest(selection: "2026-05", units: .kg, defaultRange: .last30, night: "2026-05-30",
-                                       bedtime: ClockTime(hour: 0, minute: 5), wakeTime: ClockTime(hour: 9, minute: 0))
+                                       bedtime: ClockTime(hour: 0, minute: 5), wakeTime: ClockTime(hour: 9, minute: 0),
+                                       birthDate: CalendarDay(year: 1987, month: 3, day: 14))
         #expect(try line(request) == """
-            {"id":1,"method":"dashboard","params":{"bedtime":"00:05","default_range":"last30","night":"2026-05-30",\
-            "selection":"2026-05","units":"kg","wake_time":"09:00"}}\n
+            {"id":1,"method":"dashboard","params":{"bedtime":"00:05","birth_date":"1987-03-14",\
+            "default_range":"last30","night":"2026-05-30","selection":"2026-05","units":"kg","wake_time":"09:00"}}\n
             """)
+    }
+
+    /// "YYYY-MM-DD", a real day, as server.py's `_optional_date` accepts.
+    @Test func calendarDayRawValues() throws {
+        #expect(CalendarDay(year: 1987, month: 3, day: 14)?.rawValue == "1987-03-14")
+        #expect(CalendarDay(rawValue: "2024-02-29") == CalendarDay(year: 2024, month: 2, day: 29))
+        for bad in ["2026-02-29", "1987-13-01", "1987-03-32", "1987-03-4", "87-03-14", "1987/03/14", "", "abcd-ef-gh",
+                    "+987-03-14", "1987-03-14T00:00"] {
+            #expect(CalendarDay(rawValue: bad) == nil, "\(bad)")
+        }
+        let tokyo = try #require(TimeZone(identifier: "Asia/Tokyo"))
+        let day = try #require(CalendarDay(year: 1987, month: 3, day: 14))
+        #expect(CalendarDay(day.date(timeZone: tokyo), timeZone: tokyo) == day)
+        #expect(CalendarDay(day.date()) == day)
     }
 
     /// "HH:MM", 24-hour, as server.py's `_clock_time` accepts.

@@ -72,6 +72,13 @@ def test_dashboard_scores_against_the_targets(client, export):
     assert late["sleep_score_parts"]["timing"] < default["sleep_score_parts"]["timing"]
 
 
+def test_dashboard_ages_from_the_birth_date(client, export):
+    client.call("open", folder=str(export))
+    assert client.call("dashboard")["result"]["bio_age"] is None   # no Zepp profile in the export
+    sent = client.call("dashboard", selection="2026-05", birth_date="1990-06-01")["result"]["bio_age"]
+    assert sent["birth_source"] == "settings" and sent["age"] == 36.0 and sent["days"] == 90
+
+
 @pytest.mark.parametrize("method", ["_load", "handle", "__init__", "poll_once", "watch_loop", "_read", "nope"])
 def test_only_protocol_methods_are_callable(client, method):
     reply = client.call(method)
@@ -99,6 +106,9 @@ def test_only_protocol_methods_are_callable(client, method):
     ('{"id": 1, "method": "dashboard", "params": {"bedtime": "24:00"}}', "bad_params"),
     ('{"id": 1, "method": "dashboard", "params": {"wake_time": "6:30"}}', "bad_params"),
     ('{"id": 1, "method": "dashboard", "params": {"wake_time": 630}}', "bad_params"),
+    ('{"id": 1, "method": "dashboard", "params": {"birth_date": "14/03/1987"}}', "bad_params"),
+    ('{"id": 1, "method": "dashboard", "params": {"birth_date": "1987-02-30"}}', "bad_params"),
+    ('{"id": 1, "method": "dashboard", "params": {"birth_date": 19870314}}', "bad_params"),
 ])
 def test_bad_requests_get_one_error_line(client, line, code):
     reply = client.raw(line)

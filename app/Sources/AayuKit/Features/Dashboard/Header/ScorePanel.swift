@@ -30,7 +30,7 @@ struct ScorePanel: View {
         }
         .padding(.horizontal, 24)
         .padding(.vertical, 20)
-        .frame(maxWidth: .infinity, alignment: .leading)
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)   // as tall as Bio Age beside it
         .frosted(RoundedRectangle(cornerRadius: Theme.panelRadius))
     }
 

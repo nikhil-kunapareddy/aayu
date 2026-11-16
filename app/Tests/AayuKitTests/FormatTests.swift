@@ -79,6 +79,27 @@ struct FormatTests {
         #expect(Theme.signed(value, decimals: decimals, locale: en) == text)
     }
 
+    @Test(arguments: [(0.86, "0.9×"), (0.85, "0.8×"), (1, "1.0×"), (3, "3.0×"), (-1, "−1.0×"), (-0.04, "0.0×"), (1.25, "1.2×")])
+    func pace(value: Double, text: String) {
+        #expect(Theme.pace(value, locale: en) == text)
+    }
+
+    @MainActor @Test func bioMarkerText() {
+        let steps = BioMarkerText(BioMarker(key: "steps", value: 8123, years: -2.04), locale: en)
+        #expect(steps.title == "Daily steps" && steps.value == "8,123 a day" && steps.years == "−2.0 yrs")
+        #expect(steps.color == Theme.up)
+        let older = BioMarkerText(BioMarker(key: "resting_hr", value: 71, years: 1.1), locale: en)
+        #expect(older.value == "71 bpm" && older.years == "+1.1 yrs" && older.color == Theme.down)
+        #expect(BioMarkerText(BioMarker(key: "bmi", value: 17.9, years: nil), locale: en).years == "Not scored")
+        #expect(BioMarkerText(BioMarker(key: "sleep", value: nil, years: nil), locale: en).years == "No data")
+        #expect(BioMarkerText(BioMarker(key: "sleep", value: 6.94, years: 0.04), locale: en).value == "6.9 h")
+    }
+
+    @Test func paceGaugeClampsToItsRange() {
+        #expect(PaceGauge.x(-1, width: 200) == 0 && PaceGauge.x(1, width: 200) == 100)
+        #expect(PaceGauge.x(3, width: 200) == 200 && PaceGauge.x(9, width: 200) == 200 && PaceGauge.x(-5, width: 200) == 0)
+    }
+
     @MainActor @Test func changeLabelToneFollowsTheRoundedValue() {
         #expect(ChangeLabel(-0.04, decimals: 1, suffix: " kg", higherIsBetter: false).tone == .neutral)
         #expect(ChangeLabel(0.3, suffix: "% vs April", higherIsBetter: true).tone == .neutral)

@@ -116,6 +116,22 @@ def _clock_time(name: str, value: object) -> datetime.time:
     return datetime.time(int(match[1]), int(match[2]))
 
 
+_YYYY_MM_DD: Final = re.compile(r"\d{4}-\d{2}-\d{2}")
+
+
+def _optional_date(name: str, value: object) -> datetime.date | None:
+    """A date sent as 'YYYY-MM-DD', or None."""
+    if value is None:
+        return None
+    text = _str(name, value)
+    try:
+        if _YYYY_MM_DD.fullmatch(text):
+            return datetime.date.fromisoformat(text)
+    except ValueError:
+        pass
+    raise _bad(f"'{name}' must be a date, YYYY-MM-DD.")
+
+
 def _folder(value: object) -> str:
     folder = _str("folder", value)
     if not os.path.isabs(folder):
@@ -175,21 +191,24 @@ class Server:
         }
 
     def dashboard(self, selection: object = None, units: object = "lbs", default_range: object = "month",
-                  night: object = None, bedtime: object = "23:30", wake_time: object = "06:30") -> Dashboard:
+                  night: object = None, bedtime: object = "23:30", wake_time: object = "06:30",
+                  birth_date: object = None) -> Dashboard:
         """Everything the dashboard shows (see ``series.dashboard``).
 
-        The sleep score's timing aims for `bedtime` and `wake_time` ('HH:MM', 24-hour).
+        The sleep score's timing aims for `bedtime` and `wake_time` ('HH:MM', 24-hour);
+        the bio age counts from `birth_date` ('YYYY-MM-DD', or null for the Zepp profile's).
         """
         checked_units: Units = _choice("units", units, UNITS)
         checked_range = _choice("default_range", default_range, DEFAULT_RANGES)
         checked_selection, checked_night = _optional_str("selection", selection), _optional_str("night", night)
         targets = series.SleepTargets(_clock_time("bedtime", bedtime), _clock_time("wake_time", wake_time))
+        born = _optional_date("birth_date", birth_date)
         d, error = self._data, self._error
         if d is None:
             if error is not None:
                 raise UserError(error.message, error.code)
             raise UserError("No folder is open.", Code.NO_FOLDER)
-        return series.dashboard(d, checked_selection, checked_units, checked_range, checked_night, targets)
+        return series.dashboard(d, checked_selection, checked_units, checked_range, checked_night, targets, born)
 
     def watch(self, enabled: object) -> None:
         """Turn auto-reload on or off."""
