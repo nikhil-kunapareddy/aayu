@@ -121,6 +121,21 @@ struct DesignSystemTests {
         #expect(RangeMenu.monthName("2026-05", locale: en, timeZone: Sample.utc) == "May")
     }
 
+    /// The ‹ › arrows stay put as the month changes: the control is as wide for
+    /// a short label ("May 2026") as for the longest ("September 2025").
+    @MainActor @Test func monthControlKeepsItsWidth() throws {
+        let model = DashboardModel(backend: FakeBackend(), defaults: try Sample.defaults())
+        let options = ["last30", "2026-05", "2026-03", "2025-09"]
+        let widths = try options.map { selection in
+            var o = try Sample.object()
+            o["options"] = options
+            o["selection"] = selection
+            let host = NSHostingView(rootView: MonthControl(d: try Sample.decode(o)).environment(model))
+            return host.fittingSize.width
+        }
+        #expect(Set(widths).count == 1, "widths by month: \(widths)")
+    }
+
     // ── VoiceOver ────────────────────────────────────────────────────────────
     @Test func hypnogramDescriptorHasAPointPerStageRun() throws {
         let night = try #require(try Sample.dashboard().hypnogram)
